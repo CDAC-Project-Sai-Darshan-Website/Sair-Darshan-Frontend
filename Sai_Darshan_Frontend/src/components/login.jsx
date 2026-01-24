@@ -1,0 +1,147 @@
+import { useState } from 'react';
+import { authUtils, validationUtils } from '../utils/helpers';
+
+function Login({ onLogin, onSwitchToSignup }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+
+    // Validate inputs
+    if (!validationUtils.isValidEmail(email)) {
+      setError('Please enter a valid email address');
+      setIsLoading(false);
+      return;
+    }
+
+    if (!password) {
+      setError('Please enter your password');
+      setIsLoading(false);
+      return;
+    }
+
+    // Validate user credentials
+    const user = authUtils.validateUser(email, password);
+    
+    if (user) {
+      onLogin(user);
+    } else {
+      setError('Invalid email or password');
+    }
+    
+    setIsLoading(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-orange-100 to-red-100 flex items-center justify-center px-4">
+      <div className="max-w-md w-full">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="w-24 h-24 mx-auto mb-6 rounded-full overflow-hidden shadow-xl border-4 border-orange-300 bg-white p-1">
+            <img 
+              src="/sai-baba.jpg" 
+              alt="Shirdi Sai Baba" 
+              className="w-full h-full object-cover rounded-full"
+            />
+          </div>
+          <h1 className="text-4xl font-bold text-orange-800 mb-3">श्री साईं बाबा मंदिर</h1>
+          <h2 className="text-2xl font-semibold text-orange-700 mb-2">Shirdi Sai Baba Temple</h2>
+          <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-6 py-2 rounded-full inline-block mb-3">
+            <p className="font-bold text-lg">🙏 ॐ साईं राम 🙏</p>
+          </div>
+          <p className="text-orange-600 font-medium">Online Darshan Booking Portal</p>
+        </div>
+
+        {/* Login Form */}
+        <div className="bg-white rounded-2xl shadow-2xl p-8 border border-orange-200">
+          <div className="text-center mb-6">
+            <h3 className="text-2xl font-bold text-gray-800 mb-2">Devotee Login</h3>
+
+          </div>
+          
+          {error && (
+            <div className="bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded-lg mb-6">
+              <div className="flex items-center">
+                <span className="mr-2">⚠️</span>
+                {error}
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                📧 Email Address
+              </label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full p-4 border-2 border-orange-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
+                placeholder="devotee@example.com"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                🔐 Password
+              </label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full p-4 border-2 border-orange-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
+                placeholder="Enter your password"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transform transition-all ${
+                isLoading 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-gradient-to-r from-orange-600 via-red-500 to-orange-700 text-white hover:from-orange-700 hover:to-red-600 hover:scale-105'
+              }`}
+            >
+              {isLoading ? '🔄 Signing In...' : '🚪 Enter Darshan Portal'}
+            </button>
+          </form>
+
+          <div className="mt-8 text-center">
+            <div className="flex items-center justify-center mb-4">
+              <div className="border-t border-gray-300 flex-grow"></div>
+              <span className="px-4 text-gray-500 font-medium">New Devotee?</span>
+              <div className="border-t border-gray-300 flex-grow"></div>
+            </div>
+            <button
+              onClick={onSwitchToSignup}
+              className="bg-gradient-to-r from-yellow-500 to-orange-500 text-black px-8 py-3 rounded-xl hover:from-yellow-600 hover:to-orange-600 transition-all font-black shadow-lg"
+            >
+              Register for Darshan
+            </button>
+          </div>
+        </div>
+
+        {/* Footer Blessing */}
+        <div className="text-center mt-8">
+          <p className="text-orange-700 font-bold text-lg">
+            🌟 "सबका मालिक एक" - Sabka Malik Ek 🌟
+          </p>
+          <p className="text-orange-600 mt-2 text-sm">
+            May Sai Baba bless you with peace and prosperity
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default Login
