@@ -1,40 +1,39 @@
 import { useState } from 'react';
-import { authUtils, validationUtils } from '../utils/helpers';
 
 function Login({ onLogin, onSwitchToSignup }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     setError('');
-    setIsLoading(true);
 
-    // Validate inputs
-    if (!validationUtils.isValidEmail(email)) {
+    // Validation
+    if (!email.trim()) {
+      setError('Email is required');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError('Please enter a valid email address');
-      setIsLoading(false);
+      return;
+    }
+    if (!password.trim()) {
+      setError('Password is required');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long');
       return;
     }
 
-    if (!password) {
-      setError('Please enter your password');
-      setIsLoading(false);
-      return;
-    }
+    const users = JSON.parse(localStorage.getItem('users') || '[]');
+    const user = users.find((u) => u.email === email && u.password === password);
 
-    // Validate user credentials
-    const user = authUtils.validateUser(email, password);
-    
     if (user) {
       onLogin(user);
     } else {
       setError('Invalid email or password');
     }
-    
-    setIsLoading(false);
   };
 
   return (
@@ -42,7 +41,7 @@ function Login({ onLogin, onSwitchToSignup }) {
       <div className="max-w-md w-full">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="w-24 h-24 mx-auto mb-6 rounded-full overflow-hidden shadow-xl border-4 border-orange-300 bg-white p-1">
+          <div className="w-12 h-12 mx-auto mb-6 rounded-full overflow-hidden shadow-xl border-4 border-orange-300 bg-white p-1">
             <img 
               src="/sai-baba.jpg" 
               alt="Shirdi Sai Baba" 
@@ -61,7 +60,6 @@ function Login({ onLogin, onSwitchToSignup }) {
         <div className="bg-white rounded-2xl shadow-2xl p-8 border border-orange-200">
           <div className="text-center mb-6">
             <h3 className="text-2xl font-bold text-gray-800 mb-2">Devotee Login</h3>
-
           </div>
           
           {error && (
@@ -104,16 +102,12 @@ function Login({ onLogin, onSwitchToSignup }) {
 
             <button
               type="submit"
-              disabled={isLoading}
-              className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transform transition-all ${
-                isLoading 
-                  ? 'bg-gray-400 cursor-not-allowed' 
-                  : 'bg-gradient-to-r from-orange-600 via-red-500 to-orange-700 text-white hover:from-orange-700 hover:to-red-600 hover:scale-105'
-              }`}
+              className="w-full bg-gradient-to-r from-orange-600 via-red-500 to-orange-700 text-white py-4 rounded-xl hover:from-orange-700 hover:to-red-600 transition-all font-bold text-lg shadow-lg transform hover:scale-105"
             >
-              {isLoading ? '🔄 Signing In...' : '🚪 Enter Darshan Portal'}
+              🚪 Enter Darshan Portal
             </button>
           </form>
+
 
           <div className="mt-8 text-center">
             <div className="flex items-center justify-center mb-4">
