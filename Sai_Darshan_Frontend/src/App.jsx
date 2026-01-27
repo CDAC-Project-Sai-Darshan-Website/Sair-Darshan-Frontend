@@ -1,85 +1,84 @@
-import { useState, useEffect } from 'react'
-import Login from './components/login'
-import Signup from './components/signup'
+import { useEffect } from "react"
+import { Route, Routes } from "react-router"
+import AuthProvider from "./providers/AuthProvider"
+import Login from "./components/Login"
+import Signup from "./components/Signup"
+import Logout from "./components/Logout"
+import NotFound from "./components/NotFound"
+import UserLayout from "./components/UserLayout"
+import Dashboard from "./components/Dashboard"
+import ProtectedRoute from "./components/ProtectedRoute"
+import DarshanBooking from "./components/DarshanBooking"
+import AartiBooking from "./components/AartiBooking"
+
+import DonationPage from "./components/DonationPage"
+import MyBookingsUser from "./components/MyBookingsUser"
+import UserProfile from "./components/UserProfile"
+
+import TempleServices from "./components/TempleServices"
 
 function App() {
-  const [currentUser, setCurrentUser] = useState(null)
-  const [currentView, setCurrentView] = useState('login')
-  const [isLoading, setIsLoading] = useState(true)
+	useEffect(() => {
+		const users = JSON.parse(localStorage.getItem('users') || '[]')
+		if (!users.find((u) => u.email === 'admin@shirdi.com')) {
+			const adminUser = {
+				id: 'admin-1',
+				firstName: 'Admin',
+				lastName: 'Shirdi',
+				dateOfBirth: '1990-01-01',
+				gender: 'male',
+				photoIdProof: 'Aadhaar',
+				phoneNumber: '9999999999',
+				email: 'admin@shirdi.com',
+				password: 'admin123',
+				role: 'admin',
+				createdAt: new Date().toISOString()
+			}
+			users.push(adminUser)
+			localStorage.setItem('users', JSON.stringify(users))
+		}
+	}, [])
 
-  useEffect(() => {
-    const savedUser = localStorage.getItem('currentUser')
-    if (savedUser) {
-      setCurrentUser(JSON.parse(savedUser))
-    }
-    setIsLoading(false)
-  }, [])
-
-  const handleLogin = (user) => {
-    setCurrentUser(user)
-    localStorage.setItem('currentUser', JSON.stringify(user))
-    alert('Login successful! Welcome ' + user.name)
-  }
-
-  const handleSignup = (user) => {
-    setCurrentUser(user)
-    localStorage.setItem('currentUser', JSON.stringify(user))
-    alert('Registration successful! Welcome ' + user.name)
-  }
-
-  const handleLogout = () => {
-    setCurrentUser(null)
-    localStorage.removeItem('currentUser')
-    setCurrentView('login')
-  }
-
-  const switchToSignup = () => setCurrentView('signup')
-  const switchToLogin = () => setCurrentView('login')
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-orange-100 to-red-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-24 h-24 mx-auto mb-6 rounded-full overflow-hidden shadow-xl border-4 border-orange-300 bg-white p-1 animate-pulse">
-            <img 
-              src="/sai-baba.jpg" 
-              alt="Shirdi Sai Baba" 
-              className="w-full h-full object-cover rounded-full"
-            />
-          </div>
-          <h1 className="text-3xl font-bold text-orange-800 mb-3">🙏 ॐ साईं राम 🙏</h1>
-          <p className="text-orange-600">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (currentUser) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-orange-100 to-red-100 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-orange-800 mb-4">Welcome, {currentUser.name}!</h1>
-          <p className="text-orange-600 mb-6">🙏 ॐ साईं राम 🙏</p>
-          <button
-            onClick={handleLogout}
-            className="bg-red-500 text-white px-6 py-2 rounded-lg hover:bg-red-600 transition-all font-semibold"
-          >
-            Logout
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <>
-      {currentView === 'login' ? (
-        <Login onLogin={handleLogin} onSwitchToSignup={switchToSignup} />
-      ) : (
-        <Signup onSignup={handleSignup} onSwitchToLogin={switchToLogin} />
-      )}
-    </>
-  )
+	return <div>
+		<AuthProvider>
+			<Routes>
+				<Route index element=<Login/> />
+				<Route path="/login" element=<Login/> />
+				<Route path="/signup" element=<Signup/> />
+				<Route path="/logout" element=<Logout/> />
+				<Route path="/user" element=<UserLayout/> >
+					<Route index element=<ProtectedRoute>
+						<Dashboard/>
+					</ProtectedRoute> />
+					<Route path="dashboard" element=<ProtectedRoute>
+						<Dashboard/>
+					</ProtectedRoute> />
+					<Route path="darshan" element=<ProtectedRoute>
+						<DarshanBooking/>
+					</ProtectedRoute> />
+					<Route path="aarti" element=<ProtectedRoute>
+						<AartiBooking/>
+					</ProtectedRoute> />
+					
+					
+					<Route path="donation" element=<ProtectedRoute>
+						<DonationPage/>
+					</ProtectedRoute> />
+					<Route path="services" element=<ProtectedRoute>
+						<TempleServices/>
+					</ProtectedRoute> />
+					<Route path="my-bookings" element=<ProtectedRoute>
+						<MyBookingsUser/>
+					</ProtectedRoute> />
+					<Route path="profile" element=<ProtectedRoute>
+						<UserProfile/>
+					</ProtectedRoute> />
+				</Route>
+				
+				<Route path="*" element=<NotFound/> />
+			</Routes>
+		</AuthProvider>
+	</div>
 }
 
 export default App
