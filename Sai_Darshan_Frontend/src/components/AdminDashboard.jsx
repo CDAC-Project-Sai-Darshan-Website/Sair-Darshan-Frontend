@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../providers/AuthProvider';
+import ApiService from '../services/ApiService';
 
 function AdminDashboard() {
   const { user } = useAuth();
@@ -113,23 +114,6 @@ function AdminHome() {
   const [stats, setStats] = useState({
     darshan: 0, aarti: 0, pooja: 0, donations: 0, users: 0
   });
-
-  useEffect(() => {
-    const darshan = JSON.parse(localStorage.getItem('darshanBookings') || '[]');
-    const aarti = JSON.parse(localStorage.getItem('aartiBookings') || '[]');
-    const pooja = JSON.parse(localStorage.getItem('poojaBookings') || '[]');
-    const donations = JSON.parse(localStorage.getItem('donations') || '[]');
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-
-    setStats({
-      darshan: darshan.length,
-      aarti: aarti.length,
-      pooja: pooja.length,
-      donations: donations.reduce((sum, d) => sum + d.amount, 0),
-      users: users.length
-    });
-  }, []);
-
   const [bookingsData, setBookingsData] = useState({
     darshan: [],
     aarti: [],
@@ -138,17 +122,46 @@ function AdminHome() {
   });
 
   useEffect(() => {
-    const darshan = JSON.parse(localStorage.getItem('darshanBookings') || '[]');
-    const aarti = JSON.parse(localStorage.getItem('aartiBookings') || '[]');
-    const pooja = JSON.parse(localStorage.getItem('poojaBookings') || '[]');
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-
-    setBookingsData({ darshan, aarti, pooja, users });
+    loadStats();
   }, []);
+
+  const loadStats = async () => {
+    try {
+      const [darshanBookings, aartiBookings, poojaBookings, users] = await Promise.all([
+        ApiService.getAllDarshanBookings().catch(() => []),
+        ApiService.getAllAartiBookings().catch(() => []),
+        ApiService.getAllPoojaBookings().catch(() => []),
+        ApiService.getAllUsers().catch(() => [])
+      ]);
+
+      setStats({
+        darshan: Array.isArray(darshanBookings) ? darshanBookings.length : 0,
+        aarti: Array.isArray(aartiBookings) ? aartiBookings.length : 0,
+        pooja: Array.isArray(poojaBookings) ? poojaBookings.length : 0,
+        donations: 0,
+        users: Array.isArray(users) ? users.length : 0
+      });
+
+      setBookingsData({
+        darshan: Array.isArray(darshanBookings) ? darshanBookings : [],
+        aarti: Array.isArray(aartiBookings) ? aartiBookings : [],
+        pooja: Array.isArray(poojaBookings) ? poojaBookings : [],
+        users: Array.isArray(users) ? users : []
+      });
+    } catch (error) {
+      console.error('Failed to load stats:', error);
+      setBookingsData({
+        darshan: [],
+        aarti: [],
+        pooja: [],
+        users: []
+      });
+    }
+  };
 
   const getUserName = (userId) => {
     const user = bookingsData.users.find(u => u.id === userId);
-    return user ? `${user.firstName} ${user.lastName}` : 'Unknown User';
+    return user ? `${user.firstName} ${user.lastName}` : `User ${userId}`;
   };
 
   return (
@@ -219,8 +232,8 @@ function AdminHome() {
             {bookingsData.darshan.slice(0, 5).map((booking) => (
               <div key={booking.id} className="border-l-4 border-orange-500 pl-3 py-2">
                 <p className="font-medium text-sm">{getUserName(booking.userId)}</p>
-                <p className="text-xs text-gray-600">{booking.category}</p>
-                <p className="text-xs text-gray-500">{new Date(booking.date).toLocaleDateString()} - {booking.timeSlot}</p>
+                <p className="text-xs text-gray-600">{booking.darshanSlotName}</p>
+                <p className="text-xs text-gray-500">{booking.bookingDate}</p>
               </div>
             ))}
             {bookingsData.darshan.length === 0 && (
@@ -236,8 +249,8 @@ function AdminHome() {
             {bookingsData.aarti.slice(0, 5).map((booking) => (
               <div key={booking.id} className="border-l-4 border-yellow-500 pl-3 py-2">
                 <p className="font-medium text-sm">{getUserName(booking.userId)}</p>
-                <p className="text-xs text-gray-600">{booking.category}</p>
-                <p className="text-xs text-gray-500">{new Date(booking.date).toLocaleDateString()} - {booking.timeSlot}</p>
+                <p className="text-xs text-gray-600">{booking.aartiType}</p>
+                <p className="text-xs text-gray-500">{booking.bookingDate}</p>
               </div>
             ))}
             {bookingsData.aarti.length === 0 && (
@@ -252,9 +265,9 @@ function AdminHome() {
           <div className="space-y-3">
             {bookingsData.pooja.slice(0, 5).map((booking) => (
               <div key={booking.id} className="border-l-4 border-purple-500 pl-3 py-2">
-                <p className="font-medium text-sm">{getUserName(booking.userId)}</p>
-                <p className="text-xs text-gray-600">{booking.category}</p>
-                <p className="text-xs text-gray-500">{new Date(booking.date).toLocaleDateString()}</p>
+                <p className="font-medium text-sm">{getUserName(booking.user?.id || booking.userId)}</p>
+                <p className="text-xs text-gray-600">{booking.poojaType?.displayName || 'Pooja'}</p>
+                <p className="text-xs text-gray-500">{booking.poojaDate}</p>
               </div>
             ))}
             {bookingsData.pooja.length === 0 && (
@@ -273,43 +286,44 @@ function DarshanAdmin({ showNotification }) {
   const [editingItem, setEditingItem] = useState(null);
 
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem('darshanTypes') || '[]');
-    if (saved.length === 0) {
-      const defaults = [
-        { id: 1, name: 'General Darshan', price: 0, capacity: 500, duration: '30 mins', active: true },
-        { id: 2, name: 'VIP Darshan', price: 100, capacity: 50, duration: '15 mins', active: true }
-      ];
-      localStorage.setItem('darshanTypes', JSON.stringify(defaults));
-      setDarshans(defaults);
-    } else {
-      setDarshans(saved);
-    }
+    loadDarshans();
   }, []);
 
-  const handleSave = (formData) => {
-    let updated;
-    if (editingItem) {
-      updated = darshans.map(item => 
-        item.id === editingItem.id ? { ...formData, id: editingItem.id } : item
-      );
-      showNotification('Darshan updated successfully!');
-    } else {
-      updated = [...darshans, { ...formData, id: Date.now() }];
-      showNotification('Darshan added successfully!');
+  const loadDarshans = async () => {
+    try {
+      const types = await ApiService.getAllDarshanTypes();
+      setDarshans(types);
+    } catch (error) {
+      console.error('Failed to load darshan types:', error);
     }
-    
-    setDarshans(updated);
-    localStorage.setItem('darshanTypes', JSON.stringify(updated));
-    setShowForm(false);
-    setEditingItem(null);
   };
 
-  const handleDelete = (id) => {
+  const handleSave = async (formData) => {
+    try {
+      if (editingItem) {
+        await ApiService.updateDarshanType(editingItem.id, formData);
+        showNotification('Darshan updated successfully!');
+      } else {
+        await ApiService.createDarshanType(formData);
+        showNotification('Darshan added successfully!');
+      }
+      loadDarshans();
+      setShowForm(false);
+      setEditingItem(null);
+    } catch (error) {
+      showNotification('Operation failed!', 'error');
+    }
+  };
+
+  const handleDelete = async (id) => {
     if (window.confirm('Delete this darshan?')) {
-      const updated = darshans.filter(item => item.id !== id);
-      setDarshans(updated);
-      localStorage.setItem('darshanTypes', JSON.stringify(updated));
-      showNotification('Darshan deleted!');
+      try {
+        await ApiService.deleteDarshanType(id);
+        showNotification('Darshan deleted!');
+        loadDarshans();
+      } catch (error) {
+        showNotification('Delete failed!', 'error');
+      }
     }
   };
 
@@ -319,7 +333,7 @@ function DarshanAdmin({ showNotification }) {
         <h1 className="text-3xl font-bold text-gray-800">🛕 Darshan Management</h1>
         <button
           onClick={() => setShowForm(true)}
-          className="bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 font-semibold"
+          className="bg-orange-500 text-black px-6 py-3 rounded-lg hover:bg-orange-600 font-semibold"
         >
           + Add Darshan
         </button>
@@ -341,14 +355,14 @@ function DarshanAdmin({ showNotification }) {
             {darshans.map((darshan) => (
               <tr key={darshan.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{darshan.name}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-gray-500">₹{darshan.price}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-gray-500">{darshan.capacity}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-gray-500">{darshan.duration}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-gray-500">₹{darshan.basePrice}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-gray-500">-</td>
+                <td className="px-6 py-4 whitespace-nowrap text-gray-500">-</td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    darshan.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    darshan.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                   }`}>
-                    {darshan.active ? 'Active' : 'Inactive'}
+                    {darshan.isActive ? 'Active' : 'Inactive'}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
@@ -391,18 +405,16 @@ function DarshanAdmin({ showNotification }) {
 function DarshanForm({ item, onSave, onCancel }) {
   const [formData, setFormData] = useState({
     name: item?.name || '',
-    price: item?.price || '',
-    capacity: item?.capacity || '',
-    duration: item?.duration || '',
-    active: item?.active ?? true
+    basePrice: item?.basePrice || '',
+    description: item?.description || '',
+    isActive: item?.isActive ?? true
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
     onSave({
       ...formData,
-      price: parseInt(formData.price),
-      capacity: parseInt(formData.capacity)
+      basePrice: parseFloat(formData.basePrice)
     });
   };
 
@@ -429,39 +441,26 @@ function DarshanForm({ item, onSave, onCancel }) {
               type="number"
               required
               min="0"
-              value={formData.price}
-              onChange={(e) => setFormData({...formData, price: e.target.value})}
+              step="0.01"
+              value={formData.basePrice}
+              onChange={(e) => setFormData({...formData, basePrice: e.target.value})}
               className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-orange-500"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Capacity</label>
-            <input
-              type="number"
-              required
-              min="1"
-              value={formData.capacity}
-              onChange={(e) => setFormData({...formData, capacity: e.target.value})}
+            <label className="block text-sm font-medium mb-1">Description</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({...formData, description: e.target.value})}
               className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-orange-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Duration</label>
-            <input
-              type="text"
-              required
-              value={formData.duration}
-              onChange={(e) => setFormData({...formData, duration: e.target.value})}
-              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-orange-500"
-              placeholder="e.g., 30 mins"
             />
           </div>
           <div>
             <label className="flex items-center">
               <input
                 type="checkbox"
-                checked={formData.active}
-                onChange={(e) => setFormData({...formData, active: e.target.checked})}
+                checked={formData.isActive}
+                onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
                 className="mr-2"
               />
               Active
@@ -495,55 +494,45 @@ function AartiAdmin({ showNotification }) {
   const [editingItem, setEditingItem] = useState(null);
 
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem('aartiTypes') || '[]');
-    if (saved.length === 0) {
-      const defaults = [
-        { id: 1, name: 'Kakad Aarti', time: '04:30', capacity: 200, active: true },
-        { id: 2, name: 'Madhyan Aarti', time: '12:00', capacity: 300, active: true },
-        { id: 3, name: 'Dhoop Aarti', time: '18:00', capacity: 250, active: true },
-        { id: 4, name: 'Shej Aarti', time: '22:30', capacity: 150, active: true }
-      ];
-      localStorage.setItem('aartiTypes', JSON.stringify(defaults));
-      setAartis(defaults);
-    } else {
-      setAartis(saved);
-    }
+    loadAartis();
   }, []);
 
-  const handleSave = (formData) => {
-    let updated;
-    if (editingItem) {
-      updated = aartis.map(item => 
-        item.id === editingItem.id ? { ...formData, id: editingItem.id } : item
-      );
-      showNotification('Aarti updated!');
-    } else {
-      updated = [...aartis, { ...formData, id: Date.now() }];
-      showNotification('Aarti added!');
+  const loadAartis = async () => {
+    try {
+      const types = await ApiService.getAllAdminAartiTypes();
+      setAartis(types);
+    } catch (error) {
+      console.error('Failed to load aarti types:', error);
     }
-    
-    setAartis(updated);
-    localStorage.setItem('aartiTypes', JSON.stringify(updated));
-    setShowForm(false);
-    setEditingItem(null);
   };
 
-  const handleDelete = (id) => {
+  const handleSave = async (formData) => {
+    try {
+      if (editingItem) {
+        await ApiService.updateAartiType(editingItem.id, formData);
+        showNotification('Aarti updated successfully!');
+      } else {
+        await ApiService.createAartiType(formData);
+        showNotification('Aarti added successfully!');
+      }
+      loadAartis();
+      setShowForm(false);
+      setEditingItem(null);
+    } catch (error) {
+      showNotification('Operation failed!', 'error');
+    }
+  };
+
+  const handleDelete = async (id) => {
     if (window.confirm('Delete this aarti?')) {
-      const updated = aartis.filter(item => item.id !== id);
-      setAartis(updated);
-      localStorage.setItem('aartiTypes', JSON.stringify(updated));
-      showNotification('Aarti deleted!');
+      try {
+        await ApiService.deleteAartiType(id);
+        showNotification('Aarti deleted!');
+        loadAartis();
+      } catch (error) {
+        showNotification('Delete failed!', 'error');
+      }
     }
-  };
-
-  const toggleStatus = (id) => {
-    const updated = aartis.map(item => 
-      item.id === id ? { ...item, active: !item.active } : item
-    );
-    setAartis(updated);
-    localStorage.setItem('aartiTypes', JSON.stringify(updated));
-    showNotification('Status updated!');
   };
 
   return (
@@ -552,7 +541,7 @@ function AartiAdmin({ showNotification }) {
         <h1 className="text-3xl font-bold text-gray-800">🔔 Aarti Management</h1>
         <button
           onClick={() => setShowForm(true)}
-          className="bg-yellow-500 text-white px-6 py-3 rounded-lg hover:bg-yellow-600 font-semibold"
+          className="bg-orange-500 text-black px-6 py-3 rounded-lg hover:bg-orange-600 font-semibold"
         >
           + Add Aarti
         </button>
@@ -576,14 +565,9 @@ function AartiAdmin({ showNotification }) {
                 <td className="px-6 py-4 whitespace-nowrap text-gray-500">{aarti.time}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-gray-500">{aarti.capacity}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <button
-                    onClick={() => toggleStatus(aarti.id)}
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      aarti.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}
-                  >
-                    {aarti.active ? 'Active' : 'Inactive'}
-                  </button>
+                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    Active
+                  </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                   <button
@@ -625,7 +609,9 @@ function AartiAdmin({ showNotification }) {
 function AartiForm({ item, onSave, onCancel }) {
   const [formData, setFormData] = useState({
     name: item?.name || '',
+    description: item?.description || '',
     time: item?.time || '',
+    price: item?.price || '',
     capacity: item?.capacity || '',
     active: item?.active ?? true
   });
@@ -634,6 +620,7 @@ function AartiForm({ item, onSave, onCancel }) {
     e.preventDefault();
     onSave({
       ...formData,
+      price: parseFloat(formData.price),
       capacity: parseInt(formData.capacity)
     });
   };
@@ -652,17 +639,38 @@ function AartiForm({ item, onSave, onCancel }) {
               required
               value={formData.name}
               onChange={(e) => setFormData({...formData, name: e.target.value})}
-              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-yellow-500"
+              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-orange-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Description</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({...formData, description: e.target.value})}
+              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-orange-500"
             />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Time</label>
             <input
-              type="time"
+              type="text"
               required
               value={formData.time}
               onChange={(e) => setFormData({...formData, time: e.target.value})}
-              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-yellow-500"
+              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-orange-500"
+              placeholder="e.g., 6:00 AM"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Price (₹)</label>
+            <input
+              type="number"
+              required
+              min="0"
+              step="0.01"
+              value={formData.price}
+              onChange={(e) => setFormData({...formData, price: e.target.value})}
+              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-orange-500"
             />
           </div>
           <div>
@@ -670,10 +678,10 @@ function AartiForm({ item, onSave, onCancel }) {
             <input
               type="number"
               required
-              min="1"
+              min="0"
               value={formData.capacity}
               onChange={(e) => setFormData({...formData, capacity: e.target.value})}
-              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-yellow-500"
+              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-orange-500"
             />
           </div>
           <div>
@@ -690,7 +698,7 @@ function AartiForm({ item, onSave, onCancel }) {
           <div className="flex gap-3 pt-4">
             <button
               type="submit"
-              className="flex-1 bg-yellow-500 text-black py-3 rounded-lg hover:bg-yellow-600 font-semibold"
+              className="flex-1 bg-orange-500 text-black py-3 rounded-lg hover:bg-orange-600 font-semibold"
             >
               Save
             </button>
@@ -714,44 +722,44 @@ function PoojaAdmin({ showNotification }) {
   const [editingItem, setEditingItem] = useState(null);
 
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem('poojaTypes') || '[]');
-    if (saved.length === 0) {
-      const defaults = [
-        { id: 1, name: 'Abhishek', duration: 30, amount: 500, active: true },
-        { id: 2, name: 'Rudrabhishek', duration: 60, amount: 1100, active: true },
-        { id: 3, name: 'Sahasranamarchana', duration: 45, amount: 300, active: true }
-      ];
-      localStorage.setItem('poojaTypes', JSON.stringify(defaults));
-      setPoojas(defaults);
-    } else {
-      setPoojas(saved);
-    }
+    loadPoojas();
   }, []);
 
-  const handleSave = (formData) => {
-    let updated;
-    if (editingItem) {
-      updated = poojas.map(item => 
-        item.id === editingItem.id ? { ...formData, id: editingItem.id } : item
-      );
-      showNotification('Pooja updated!');
-    } else {
-      updated = [...poojas, { ...formData, id: Date.now() }];
-      showNotification('Pooja added!');
+  const loadPoojas = async () => {
+    try {
+      const types = await ApiService.getAllAdminPoojaTypes();
+      setPoojas(types);
+    } catch (error) {
+      console.error('Failed to load pooja types:', error);
     }
-    
-    setPoojas(updated);
-    localStorage.setItem('poojaTypes', JSON.stringify(updated));
-    setShowForm(false);
-    setEditingItem(null);
   };
 
-  const handleDelete = (id) => {
+  const handleSave = async (formData) => {
+    try {
+      if (editingItem) {
+        await ApiService.updatePoojaType(editingItem.id, formData);
+        showNotification('Pooja updated successfully!');
+      } else {
+        await ApiService.createPoojaType(formData);
+        showNotification('Pooja added successfully!');
+      }
+      loadPoojas();
+      setShowForm(false);
+      setEditingItem(null);
+    } catch (error) {
+      showNotification('Operation failed!', 'error');
+    }
+  };
+
+  const handleDelete = async (id) => {
     if (window.confirm('Delete this pooja?')) {
-      const updated = poojas.filter(item => item.id !== id);
-      setPoojas(updated);
-      localStorage.setItem('poojaTypes', JSON.stringify(updated));
-      showNotification('Pooja deleted!');
+      try {
+        await ApiService.deletePoojaType(id);
+        showNotification('Pooja deleted!');
+        loadPoojas();
+      } catch (error) {
+        showNotification('Delete failed!', 'error');
+      }
     }
   };
 
@@ -761,7 +769,7 @@ function PoojaAdmin({ showNotification }) {
         <h1 className="text-3xl font-bold text-gray-800">🕉 Pooja Management</h1>
         <button
           onClick={() => setShowForm(true)}
-          className="bg-purple-500 text-white px-6 py-3 rounded-lg hover:bg-purple-600 font-semibold"
+          className="bg-orange-500 text-black px-6 py-3 rounded-lg hover:bg-orange-600 font-semibold"
         >
           + Add Pooja
         </button>
@@ -781,14 +789,12 @@ function PoojaAdmin({ showNotification }) {
           <tbody className="divide-y divide-gray-200">
             {poojas.map((pooja) => (
               <tr key={pooja.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{pooja.name}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-gray-500">{pooja.duration} mins</td>
-                <td className="px-6 py-4 whitespace-nowrap text-gray-500">₹{pooja.amount}</td>
+                <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{pooja.displayName}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-gray-500">{pooja.durationMinutes} mins</td>
+                <td className="px-6 py-4 whitespace-nowrap text-gray-500">₹{pooja.price}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    pooja.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {pooja.active ? 'Active' : 'Inactive'}
+                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    Active
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
@@ -830,19 +836,17 @@ function PoojaAdmin({ showNotification }) {
 
 function PoojaForm({ item, onSave, onCancel }) {
   const [formData, setFormData] = useState({
-    name: item?.name || '',
-    duration: item?.duration || '',
-    amount: item?.amount || '',
-    description: item?.description || '',
-    active: item?.active ?? true
+    displayName: item?.displayName || '',
+    durationMinutes: item?.durationMinutes || '',
+    price: item?.price || ''
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
     onSave({
       ...formData,
-      duration: parseInt(formData.duration),
-      amount: parseInt(formData.amount)
+      durationMinutes: parseInt(formData.durationMinutes),
+      price: parseFloat(formData.price)
     });
   };
 
@@ -858,9 +862,9 @@ function PoojaForm({ item, onSave, onCancel }) {
             <input
               type="text"
               required
-              value={formData.name}
-              onChange={(e) => setFormData({...formData, name: e.target.value})}
-              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
+              value={formData.displayName}
+              onChange={(e) => setFormData({...formData, displayName: e.target.value})}
+              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-orange-500"
             />
           </div>
           <div>
@@ -868,46 +872,28 @@ function PoojaForm({ item, onSave, onCancel }) {
             <input
               type="number"
               required
-              min="1"
-              value={formData.duration}
-              onChange={(e) => setFormData({...formData, duration: e.target.value})}
-              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
+              min="0"
+              value={formData.durationMinutes}
+              onChange={(e) => setFormData({...formData, durationMinutes: e.target.value})}
+              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-orange-500"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Amount (₹)</label>
+            <label className="block text-sm font-medium mb-1">Price (₹)</label>
             <input
               type="number"
               required
               min="0"
-              value={formData.amount}
-              onChange={(e) => setFormData({...formData, amount: e.target.value})}
-              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
+              step="0.01"
+              value={formData.price}
+              onChange={(e) => setFormData({...formData, price: e.target.value})}
+              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-orange-500"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Description</label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({...formData, description: e.target.value})}
-              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 h-20"
-            />
-          </div>
-          <div>
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={formData.active}
-                onChange={(e) => setFormData({...formData, active: e.target.checked})}
-                className="mr-2"
-              />
-              Active
-            </label>
           </div>
           <div className="flex gap-3 pt-4">
             <button
               type="submit"
-              className="flex-1 bg-purple-500 text-black py-3 rounded-lg hover:bg-purple-600 font-semibold"
+              className="flex-1 bg-orange-500 text-black py-3 rounded-lg hover:bg-orange-600 font-semibold"
             >
               Save
             </button>
@@ -928,204 +914,13 @@ function PoojaForm({ item, onSave, onCancel }) {
 
 
 function DonationAdmin({ showNotification }) {
-  const [donations, setDonations] = useState([]);
-  const [showForm, setShowForm] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
-
-  useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem('donationTypes') || '[]');
-    if (saved.length === 0) {
-      const defaults = [
-        { id: 1, name: 'General Donation', amount: 101, description: 'Support overall temple operations', active: true },
-        { id: 2, name: 'Annadan', amount: 251, description: 'Sponsor meals for devotees', active: true },
-        { id: 3, name: 'Temple Development', amount: 501, description: 'Infrastructure improvements', active: true }
-      ];
-      localStorage.setItem('donationTypes', JSON.stringify(defaults));
-      setDonations(defaults);
-    } else {
-      setDonations(saved);
-    }
-  }, []);
-
-  const handleSave = (formData) => {
-    let updated;
-    if (editingItem) {
-      updated = donations.map(item => 
-        item.id === editingItem.id ? { ...formData, id: editingItem.id } : item
-      );
-      showNotification('Donation type updated!');
-    } else {
-      updated = [...donations, { ...formData, id: Date.now() }];
-      showNotification('Donation type added!');
-    }
-    
-    setDonations(updated);
-    localStorage.setItem('donationTypes', JSON.stringify(updated));
-    setShowForm(false);
-    setEditingItem(null);
-  };
-
-  const handleDelete = (id) => {
-    if (window.confirm('Delete this donation type?')) {
-      const updated = donations.filter(item => item.id !== id);
-      setDonations(updated);
-      localStorage.setItem('donationTypes', JSON.stringify(updated));
-      showNotification('Donation type deleted!');
-    }
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-800">💰 Donation Management</h1>
-        <button
-          onClick={() => setShowForm(true)}
-          className="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 font-semibold"
-        >
-          + Add Donation Type
-        </button>
       </div>
-
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {donations.map((donation) => (
-              <tr key={donation.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{donation.name}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-gray-500">₹{donation.amount}</td>
-                <td className="px-6 py-4 text-gray-500">{donation.description}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    donation.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {donation.active ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                  <button
-                    onClick={() => {
-                      setEditingItem(donation);
-                      setShowForm(true);
-                    }}
-                    className="text-blue-600 hover:text-blue-900"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(donation.id)}
-                    className="text-red-600 hover:text-red-900"
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {showForm && (
-        <DonationForm
-          item={editingItem}
-          onSave={handleSave}
-          onCancel={() => {
-            setShowForm(false);
-            setEditingItem(null);
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-function DonationForm({ item, onSave, onCancel }) {
-  const [formData, setFormData] = useState({
-    name: item?.name || '',
-    amount: item?.amount || '',
-    description: item?.description || '',
-    active: item?.active ?? true
-  });
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSave({
-      ...formData,
-      amount: parseInt(formData.amount)
-    });
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h3 className="text-lg font-semibold mb-4">
-          {item ? 'Edit Donation Type' : 'Add Donation Type'}
-        </h3>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Name</label>
-            <input
-              type="text"
-              required
-              value={formData.name}
-              onChange={(e) => setFormData({...formData, name: e.target.value})}
-              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Amount (₹)</label>
-            <input
-              type="number"
-              required
-              min="1"
-              value={formData.amount}
-              onChange={(e) => setFormData({...formData, amount: e.target.value})}
-              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Description</label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({...formData, description: e.target.value})}
-              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500 h-20"
-            />
-          </div>
-          <div>
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={formData.active}
-                onChange={(e) => setFormData({...formData, active: e.target.checked})}
-                className="mr-2"
-              />
-              Active
-            </label>
-          </div>
-          <div className="flex gap-3 pt-4">
-            <button
-              type="submit"
-              className="flex-1 bg-green-500 text-black py-3 rounded-lg hover:bg-green-600 font-semibold"
-            >
-              Save
-            </button>
-            <button
-              type="button"
-              onClick={onCancel}
-              className="flex-1 bg-gray-500 text-black py-3 rounded-lg hover:bg-gray-600 font-semibold"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
+      <div className="bg-white rounded-lg shadow p-6">
+        <p className="text-gray-600">Donation management coming soon...</p>
       </div>
     </div>
   );
@@ -1136,9 +931,17 @@ function UsersAdmin({ showNotification }) {
   const [showUserDetails, setShowUserDetails] = useState(null);
 
   useEffect(() => {
-    const allUsers = JSON.parse(localStorage.getItem('users') || '[]');
-    setUsers(allUsers.filter(user => user.role !== 'admin'));
+    loadUsers();
   }, []);
+
+  const loadUsers = async () => {
+    try {
+      const allUsers = await ApiService.getAllUsers();
+      setUsers(allUsers);
+    } catch (error) {
+      console.error('Failed to load users:', error);
+    }
+  };
 
   return (
     <div className="space-y-6">
