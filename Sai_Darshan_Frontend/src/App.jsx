@@ -10,11 +10,11 @@ import Dashboard from "./components/Dashboard"
 import ProtectedRoute from "./components/ProtectedRoute"
 import DarshanBooking from "./components/DarshanBooking"
 import AartiBooking from "./components/AartiBooking"
-
+import SpecialPoojaBooking from "./components/SpecialPoojaBooking"
 import DonationPage from "./components/DonationPage"
 import MyBookingsUser from "./components/MyBookingsUser"
 import UserProfile from "./components/UserProfile"
-
+import AdminDashboard from "./components/AdminDashboard"
 import TempleServices from "./components/TempleServices"
 
 function App() {
@@ -59,8 +59,9 @@ function App() {
 					<Route path="aarti" element=<ProtectedRoute>
 						<AartiBooking/>
 					</ProtectedRoute> />
-					
-					
+					<Route path="pooja" element=<ProtectedRoute>
+						<SpecialPoojaBooking/>
+					</ProtectedRoute> />
 					<Route path="donation" element=<ProtectedRoute>
 						<DonationPage/>
 					</ProtectedRoute> />
@@ -74,7 +75,9 @@ function App() {
 						<UserProfile/>
 					</ProtectedRoute> />
 				</Route>
-				
+				<Route path="/admin/*" element=<ProtectedRoute>
+					<AdminDashboard/>
+				</ProtectedRoute> />
 				<Route path="*" element=<NotFound/> />
 			</Routes>
 		</AuthProvider>
