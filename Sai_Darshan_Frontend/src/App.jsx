@@ -1,8 +1,8 @@
 import { useEffect } from "react"
-import { Route, Routes } from "react-router"
+import { Route, Routes } from "react-router-dom"
 import AuthProvider from "./providers/AuthProvider"
-import Login from "./components/Login"
-import Signup from "./components/Signup"
+import Login from "./components/login"
+import Signup from "./components/signup"
 import Logout from "./components/Logout"
 import NotFound from "./components/NotFound"
 import UserLayout from "./components/UserLayout"
@@ -39,49 +39,69 @@ function App() {
 		}
 	}, [])
 
-	return <div>
+	return (
 		<AuthProvider>
 			<Routes>
-				<Route index element=<Login/> />
-				<Route path="/login" element=<Login/> />
-				<Route path="/signup" element=<Signup/> />
-				<Route path="/logout" element=<Logout/> />
-				<Route path="/user" element=<UserLayout/> >
-					<Route index element=<ProtectedRoute>
-						<Dashboard/>
-					</ProtectedRoute> />
-					<Route path="dashboard" element=<ProtectedRoute>
-						<Dashboard/>
-					</ProtectedRoute> />
-					<Route path="darshan" element=<ProtectedRoute>
-						<DarshanBooking/>
-					</ProtectedRoute> />
-					<Route path="aarti" element=<ProtectedRoute>
-						<AartiBooking/>
-					</ProtectedRoute> />
-					<Route path="pooja" element=<ProtectedRoute>
-						<SpecialPoojaBooking/>
-					</ProtectedRoute> />
-					<Route path="donation" element=<ProtectedRoute>
-						<DonationPage/>
-					</ProtectedRoute> />
-					<Route path="services" element=<ProtectedRoute>
-						<TempleServices/>
-					</ProtectedRoute> />
-					<Route path="my-bookings" element=<ProtectedRoute>
-						<MyBookingsUser/>
-					</ProtectedRoute> />
-					<Route path="profile" element=<ProtectedRoute>
-						<UserProfile/>
-					</ProtectedRoute> />
+				<Route index element={<Login/>} />
+				<Route path="/login" element={<Login/>} />
+				<Route path="/signup" element={<Signup/>} />
+				<Route path="/logout" element={<Logout/>} />
+				<Route path="/user" element={<UserLayout/>} >
+					<Route index element={
+						<ProtectedRoute>
+							<Dashboard/>
+						</ProtectedRoute>
+					} />
+					<Route path="dashboard" element={
+						<ProtectedRoute>
+							<Dashboard/>
+						</ProtectedRoute>
+					} />
+					<Route path="darshan" element={
+						<ProtectedRoute>
+							<DarshanBooking/>
+						</ProtectedRoute>
+					} />
+					<Route path="aarti" element={
+						<ProtectedRoute>
+							<AartiBooking/>
+						</ProtectedRoute>
+					} />
+					<Route path="pooja" element={
+						<ProtectedRoute>
+							<SpecialPoojaBooking/>
+						</ProtectedRoute>
+					} />
+					<Route path="donation" element={
+						<ProtectedRoute>
+							<DonationPage/>
+						</ProtectedRoute>
+					} />
+					<Route path="services" element={
+						<ProtectedRoute>
+							<TempleServices/>
+						</ProtectedRoute>
+					} />
+					<Route path="my-bookings" element={
+						<ProtectedRoute>
+							<MyBookingsUser/>
+						</ProtectedRoute>
+					} />
+					<Route path="profile" element={
+						<ProtectedRoute>
+							<UserProfile/>
+						</ProtectedRoute>
+					} />
 				</Route>
-				<Route path="/admin/*" element=<ProtectedRoute>
-					<AdminDashboard/>
-				</ProtectedRoute> />
-				<Route path="*" element=<NotFound/> />
+				<Route path="/admin/*" element={
+					<ProtectedRoute>
+						<AdminDashboard/>
+					</ProtectedRoute>
+				} />
+				<Route path="*" element={<NotFound/>} />
 			</Routes>
 		</AuthProvider>
-	</div>
+	)
 }
 
 export default App

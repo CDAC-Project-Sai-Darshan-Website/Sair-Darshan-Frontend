@@ -1,75 +1,64 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../providers/AuthProvider';
+import ApiService from '../services/ApiService';
 
-function Signup({ onSignup, onSwitchToLogin }) {
+function Signup() {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     email: '',
     phoneNumber: '',
+    dateOfBirth: '',
+    gender: '',
+    photoIdProof: '',
+    photoIdNumber: '',
     password: '',
     confirmPassword: ''
   });
   const [error, setError] = useState('');
-  const handleSubmit = (e) => {
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const { setUser } = useAuth();
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
-    // Validation
-    if (!formData.firstName.trim()) {
-      setError('First name is required');
-      return;
-    }
-    if (!formData.lastName.trim()) {
-      setError('Last name is required');
-      return;
-    }
-    if (!formData.email.trim()) {
-      setError('Email is required');
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      setError('Please enter a valid email address');
-      return;
-    }
-    if (!formData.phoneNumber.trim()) {
-      setError('Phone number is required');
-      return;
-    }
-    if (!/^[0-9]{10}$/.test(formData.phoneNumber.replace(/\D/g, ''))) {
-      setError('Please enter a valid 10-digit phone number');
-      return;
-    }
-    if (!formData.password.trim()) {
-      setError('Password is required');
-      return;
-    }
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters long');
-      return;
-    }
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
+      setLoading(false);
       return;
     }
 
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    
-    if (users.find(u => u.email === formData.email)) {
-      setError('Email already registered');
-      return;
+    try {
+      const response = await ApiService.signup({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phoneNumber: formData.phoneNumber,
+        dateOfBirth: formData.dateOfBirth,
+        gender: formData.gender.toUpperCase(),
+        photoIdProof: formData.photoIdProof,
+        photoIdNumber: formData.photoIdNumber,
+        password: formData.password
+      });
+      
+      // After successful signup, login the user
+      const loginData = await ApiService.login(formData.email, formData.password);
+      setUser(loginData.user);
+      navigate('/user/dashboard');
+    } catch (error) {
+      const errorMsg = error.message || 'Registration failed';
+      if (errorMsg.includes('409') || errorMsg.includes('Conflict') || errorMsg.includes('already exists')) {
+        setError('This email is already registered. Please login or use a different email.');
+      } else {
+        setError(errorMsg);
+      }
+    } finally {
+      setLoading(false);
     }
-
-    const newUser = {
-      id: Date.now().toString(),
-      name: `${formData.firstName} ${formData.lastName}`,
-      ...formData,
-      role: 'user',
-      createdAt: new Date().toISOString()
-    };
-
-    users.push(newUser);
-    localStorage.setItem('users', JSON.stringify(users));
-    onSignup(newUser);
   };
 
   const handleChange = (e) => {
@@ -170,6 +159,74 @@ function Signup({ onSignup, onSwitchToLogin }) {
 
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
+                📅 Date of Birth
+              </label>
+              <input
+                type="date"
+                name="dateOfBirth"
+                required
+                value={formData.dateOfBirth}
+                onChange={handleChange}
+                className="w-full p-3 border-2 border-orange-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  👤 Gender
+                </label>
+                <select
+                  name="gender"
+                  required
+                  value={formData.gender}
+                  onChange={handleChange}
+                  className="w-full p-3 border-2 border-orange-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
+                >
+                  <option value="">Select Gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  🆔 ID Proof Type
+                </label>
+                <select
+                  name="photoIdProof"
+                  required
+                  value={formData.photoIdProof}
+                  onChange={handleChange}
+                  className="w-full p-3 border-2 border-orange-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
+                >
+                  <option value="">Select ID Type</option>
+                  <option value="AADHAAR_CARD">Aadhaar Card</option>
+                  <option value="PAN_CARD">PAN Card</option>
+                  <option value="PASSPORT">Passport</option>
+                  <option value="DRIVING_LICENSE">Driving License</option>
+                  <option value="VOTER_ID">Voter ID</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                🔢 ID Number
+              </label>
+              <input
+                type="text"
+                name="photoIdNumber"
+                required
+                value={formData.photoIdNumber}
+                onChange={handleChange}
+                className="w-full p-3 border-2 border-orange-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
+                placeholder="Enter ID number"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
                 🔐 Password
               </label>
               <input
@@ -200,9 +257,10 @@ function Signup({ onSignup, onSwitchToLogin }) {
 
             <button
               type="submit"
-              className="w-full bg-gradient-to-r from-orange-600 via-red-500 to-orange-700 text-white py-4 rounded-xl hover:from-orange-700 hover:to-red-600 transition-all font-bold text-lg shadow-lg transform hover:scale-105"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-orange-600 via-red-500 to-orange-700 text-white py-4 rounded-xl hover:from-orange-700 hover:to-red-600 transition-all font-bold text-lg shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              🙏 Join Sai Family
+              {loading ? '🔄 Creating Account...' : '🙏 Join Sai Family'}
             </button>
           </form>
 
@@ -213,7 +271,7 @@ function Signup({ onSignup, onSwitchToLogin }) {
               <div className="border-t border-gray-300 flex-grow"></div>
             </div>
             <button
-              onClick={onSwitchToLogin}
+              onClick={() => navigate('/login')}
               className="bg-gradient-to-r from-yellow-500 to-orange-500 text-black px-8 py-3 rounded-xl hover:from-yellow-600 hover:to-orange-600 transition-all font-bold shadow-lg"
             >
               Login Here

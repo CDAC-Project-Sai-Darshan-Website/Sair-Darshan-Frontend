@@ -1,5 +1,5 @@
 // API Configuration and Authentication Service
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
 class ApiService {
   constructor() {
@@ -48,7 +48,169 @@ class ApiService {
     }
   }
 
-  // Admin Authentication
+  // User Authentication APIs
+  async login(email, password) {
+    // For now, use localStorage as fallback since backend might not be running
+    const users = JSON.parse(localStorage.getItem('users') || '[]');
+    const user = users.find(u => u.email === email && u.password === password);
+    
+    if (!user) {
+      throw new Error('Invalid email or password');
+    }
+    
+    localStorage.setItem('currentUser', JSON.stringify(user));
+    return { user };
+  }
+
+  async signup(userData) {
+    // For now, use localStorage as fallback since backend might not be running
+    const users = JSON.parse(localStorage.getItem('users') || '[]');
+    
+    // Check if user already exists
+    if (users.find(u => u.email === userData.email)) {
+      throw new Error('User with this email already exists');
+    }
+    
+    // Create new user
+    const newUser = {
+      id: Date.now().toString(),
+      ...userData,
+      createdAt: new Date().toISOString()
+    };
+    
+    users.push(newUser);
+    localStorage.setItem('users', JSON.stringify(users));
+    
+    return { user: newUser };
+  }
+
+  // User Booking APIs
+  async getUserDarshanBookings(userId) {
+    const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
+    return bookings.filter(booking => booking.userId === userId && booking.type === 'darshan');
+  }
+
+  async getUserAartiBookings(userId) {
+    const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
+    return bookings.filter(booking => booking.userId === userId && booking.type === 'aarti');
+  }
+
+  async getUserPoojaBookings(userId) {
+    const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
+    return bookings.filter(booking => booking.userId === userId && booking.type === 'pooja');
+  }
+
+  async getUserAllBookings(userId) {
+    const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
+    return bookings.filter(booking => booking.userId === userId);
+  }
+
+  // Aarti Types API
+  async getAartiTypes() {
+    // Return default aarti types since backend might not be available
+    return [
+      'Kakad Aarti',
+      'Madhyan Aarti', 
+      'Dhoop Aarti',
+      'Shej Aarti'
+    ];
+  }
+
+  async bookAarti(bookingData) {
+    // Get aarti time based on type
+    const aartiTimes = {
+      'Kakad Aarti': '04:30 AM',
+      'Madhyan Aarti': '12:00 PM', 
+      'Dhoop Aarti': '06:30 PM',
+      'Shej Aarti': '10:30 PM'
+    };
+    
+    // Save aarti booking to localStorage
+    const booking = {
+      id: Date.now().toString(),
+      userId: bookingData.userId,
+      type: 'aarti',
+      aartiType: bookingData.aartiType,
+      date: bookingData.bookingDate,
+      time: aartiTimes[bookingData.aartiType] || '06:00 PM',
+      totalAmount: bookingData.totalAmount || 100,
+      numberOfPeople: bookingData.numberOfPeople || 1,
+      status: 'confirmed',
+      bookingDate: new Date().toISOString()
+    };
+    
+    const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
+    bookings.push(booking);
+    localStorage.setItem('bookings', JSON.stringify(bookings));
+    
+    return booking;
+  }
+
+  // Pooja Types and Booking APIs
+  async getPoojaTypes() {
+    // Return default pooja types since backend might not be available
+    return [
+      {
+        poojaType: 'RUDRABHISHEK',
+        displayName: 'Rudrabhishek Pooja',
+        price: 2100,
+        durationMinutes: 90,
+        description: 'Sacred abhishek of Lord Shiva with holy water, milk, and sacred materials',
+        requiredMaterials: 'Milk, Honey, Ghee, Gangajal, Bilva leaves, Flowers',
+        benefits: 'Removes obstacles, brings peace and prosperity'
+      },
+      {
+        poojaType: 'MAHAMRITYUNJAY',
+        displayName: 'Mahamrityunjay Jaap',
+        price: 1100,
+        durationMinutes: 60,
+        description: 'Powerful mantra chanting for health and longevity',
+        requiredMaterials: 'Rudraksha, White flowers, Sacred thread, Ghee lamp',
+        benefits: 'Protects from diseases, grants good health and long life'
+      },
+      {
+        poojaType: 'SATYANARAYAN',
+        displayName: 'Satyanarayan Pooja',
+        price: 1500,
+        durationMinutes: 120,
+        description: 'Complete Satyanarayan Katha and pooja for prosperity',
+        requiredMaterials: 'Banana, Coconut, Panchamrit, Flowers, Incense',
+        benefits: 'Brings wealth, happiness and fulfills desires'
+      },
+      {
+        poojaType: 'HANUMAN_CHALISA',
+        displayName: 'Hanuman Chalisa Path',
+        price: 500,
+        durationMinutes: 45,
+        description: 'Recitation of Hanuman Chalisa with aarti',
+        requiredMaterials: 'Red flowers, Sindoor, Coconut, Sweets',
+        benefits: 'Removes fear, grants strength and courage'
+      }
+    ];
+  }
+
+  async bookPooja(userId, bookingData) {
+    // Save pooja booking to localStorage
+    const booking = {
+      id: Date.now().toString(),
+      userId: userId,
+      type: 'pooja',
+      category: bookingData.poojaType,
+      date: bookingData.date,
+      timeSlot: bookingData.timeSlot,
+      totalAmount: bookingData.totalAmount,
+      devoteeDetails: bookingData.devoteeDetails,
+      status: 'confirmed',
+      bookingDate: new Date().toISOString()
+    };
+    
+    const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
+    bookings.push(booking);
+    localStorage.setItem('bookings', JSON.stringify(bookings));
+    
+    return booking;
+  }
+
   async adminLogin(email, password) {
     const response = await fetch(`${API_BASE_URL}/admin/login`, {
       method: 'POST',
