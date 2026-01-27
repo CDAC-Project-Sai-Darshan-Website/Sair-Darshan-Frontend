@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../providers/AuthProvider';
-import { useNavigate } from 'react-router';
+import { useNavigate } from 'react-router-dom';
+import ApiService from '../services/ApiService';
 
 function MyBookingsUser() {
   const { user } = useAuth();
@@ -14,30 +15,27 @@ function MyBookingsUser() {
 
   useEffect(() => {
     if (!user) return;
-    
-    // Load all bookings for the current user
-    const darshanBookings = JSON.parse(localStorage.getItem('darshanBookings') || '[]')
-      .filter(booking => booking.userId === user.id);
-    
-    const aartiBookings = JSON.parse(localStorage.getItem('aartiBookings') || '[]')
-      .filter(booking => booking.userId === user.id);
-    
-    const poojaBookings = JSON.parse(localStorage.getItem('poojaBookings') || '[]')
-      .filter(booking => booking.userId === user.id);
-
-    const donations = JSON.parse(localStorage.getItem('donations') || '[]');
-    // .filter(donation => donation.userId === user.id);
-
-    console.log('All donations:', donations);
-    console.log('User ID:', user.id);
-
-    setBookings({
-      darshan: darshanBookings,
-      aarti: aartiBookings,
-      pooja: poojaBookings,
-      donations: donations
-    });
+    loadBookings();
   }, [user]);
+
+  const loadBookings = async () => {
+    try {
+      const [darshanBookings, aartiBookings, poojaBookings] = await Promise.all([
+        ApiService.getUserDarshanBookings(user.id).catch(() => []),
+        ApiService.getUserAartiBookings(user.id).catch(() => []),
+        ApiService.getUserPoojaBookings(user.id).catch(() => [])
+      ]);
+
+      setBookings({
+        darshan: darshanBookings,
+        aarti: aartiBookings,
+        pooja: poojaBookings,
+        donations: [] // Donations not implemented in backend yet
+      });
+    } catch (error) {
+      console.error('Failed to load bookings:', error);
+    }
+  };
 
   if (!user) {
     return <div>Loading...</div>;
@@ -132,14 +130,14 @@ function MyBookingsUser() {
                     <tbody>
                       {bookings.aarti.map((booking) => (
                         <tr key={booking.id} className="border-b">
-                          <td className="py-2">{booking.category}</td>
+                          <td className="py-2">{booking.aartiType}</td>
                           <td className="py-2">{booking.date}</td>
-                          <td className="py-2">{booking.timeSlot}</td>
+                          <td className="py-2">{booking.time}</td>
                           <td className="py-2">{booking.numberOfPeople}</td>
                           <td className="py-2">₹{booking.totalAmount}</td>
                           <td className="py-2">
                             <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">
-                              {booking.status}
+                              {booking.status || 'Confirmed'}
                             </span>
                           </td>
                         </tr>

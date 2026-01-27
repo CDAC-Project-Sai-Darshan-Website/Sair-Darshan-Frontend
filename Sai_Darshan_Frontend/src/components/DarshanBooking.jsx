@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../providers/AuthProvider';
-import { useNavigate } from 'react-router';
+import { useNavigate } from 'react-router-dom';
 
 const darshanTypes = [
   { id: 1, name: 'General Darshan', price: 0, duration: '30 mins', description: 'Free darshan for all devotees' },
@@ -27,6 +27,7 @@ function DarshanBooking() {
       id: Date.now().toString(),
       userId: user.id,
       userName: `${user.firstName} ${user.lastName}`,
+      type: 'darshan',
       darshanType: selectedDarshan.name,
       date: selectedDate,
       time: selectedTime,
@@ -36,9 +37,9 @@ function DarshanBooking() {
       bookingDate: new Date().toISOString()
     };
 
-    const bookings = JSON.parse(localStorage.getItem('darshanBookings') || '[]');
+    const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
     bookings.push(booking);
-    localStorage.setItem('darshanBookings', JSON.stringify(bookings));
+    localStorage.setItem('bookings', JSON.stringify(bookings));
     
     setBookingConfirmed(true);
   };

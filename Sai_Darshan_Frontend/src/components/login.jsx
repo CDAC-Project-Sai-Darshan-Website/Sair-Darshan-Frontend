@@ -1,38 +1,44 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../providers/AuthProvider';
+import ApiService from '../services/ApiService';
 
-function Login({ onLogin, onSwitchToSignup }) {
+function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const handleSubmit = (e) => {
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const { setUser } = useAuth();
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
-    // Validation
-    if (!email.trim()) {
-      setError('Email is required');
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError('Please enter a valid email address');
-      return;
-    }
-    if (!password.trim()) {
-      setError('Password is required');
-      return;
-    }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters long');
-      return;
-    }
-
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const user = users.find((u) => u.email === email && u.password === password);
-
-    if (user) {
-      onLogin(user);
-    } else {
-      setError('Invalid email or password');
+    try {
+      // Check if admin login (hardcoded)
+      if (email === 'admin@shirdi.com' && password === 'admin123') {
+        const adminUser = {
+          id: 0,
+          email: 'admin@shirdi.com',
+          firstName: 'Admin',
+          lastName: 'User',
+          role: 'admin'
+        };
+        setUser(adminUser);
+        localStorage.setItem('user', JSON.stringify(adminUser));
+        navigate('/admin');
+      } else {
+        // Regular user login via API
+        const userData = await ApiService.login(email, password);
+        setUser(userData.user);
+        navigate('/user/dashboard');
+      }
+    } catch (error) {
+      setError(error.message || 'Login failed');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -102,12 +108,18 @@ function Login({ onLogin, onSwitchToSignup }) {
 
             <button
               type="submit"
-              className="w-full bg-gradient-to-r from-orange-600 via-red-500 to-orange-700 text-white py-4 rounded-xl hover:from-orange-700 hover:to-red-600 transition-all font-bold text-lg shadow-lg transform hover:scale-105"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-orange-600 via-red-500 to-orange-700 text-white py-4 rounded-xl hover:from-orange-700 hover:to-red-600 transition-all font-bold text-lg shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              🚪 Enter Darshan Portal
+              {loading ? '🔄 Connecting...' : '🚪 Enter Darshan Portal'}
             </button>
           </form>
 
+          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm font-semibold text-blue-800 mb-2">🔑 Admin Access:</p>
+            <p className="text-xs text-blue-600">Email: admin@shirdi.com</p>
+            <p className="text-xs text-blue-600">Password: admin123</p>
+          </div>
 
           <div className="mt-8 text-center">
             <div className="flex items-center justify-center mb-4">
@@ -116,7 +128,7 @@ function Login({ onLogin, onSwitchToSignup }) {
               <div className="border-t border-gray-300 flex-grow"></div>
             </div>
             <button
-              onClick={onSwitchToSignup}
+              onClick={() => navigate('/signup')}
               className="bg-gradient-to-r from-yellow-500 to-orange-500 text-black px-8 py-3 rounded-xl hover:from-yellow-600 hover:to-orange-600 transition-all font-black shadow-lg"
             >
               Register for Darshan

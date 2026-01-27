@@ -1,49 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, IndianRupee, Clock, Info, CheckCircle, Users } from 'lucide-react';
 import { useAuth } from '../providers/AuthProvider';
-
-const aartiTypes = [
-  { 
-    id: 'kakad', 
-    name: 'Kakad Aarti', 
-    time: '4:30 AM', 
-    price: 100,
-    description: 'Early morning aarti to wake up Sai Baba',
-    duration: '30 minutes',
-    availability: 150,
-    guidelines: 'Please arrive 15 minutes early. Maintain silence during aarti.'
-  },
-  { 
-    id: 'madhyan', 
-    name: 'Madhyan Aarti', 
-    time: '12:00 PM', 
-    price: 100,
-    description: 'Afternoon aarti with bhog offering',
-    duration: '25 minutes',
-    availability: 120,
-    guidelines: 'Bhog prasad will be distributed after aarti.'
-  },
-  { 
-    id: 'dhoop', 
-    name: 'Dhoop Aarti', 
-    time: '6:30 PM', 
-    price: 100,
-    description: 'Evening aarti with dhoop and deep',
-    duration: '35 minutes',
-    availability: 200,
-    guidelines: 'Most popular aarti. Please book in advance.'
-  },
-  { 
-    id: 'shej', 
-    name: 'Shej Aarti', 
-    time: '10:30 PM', 
-    price: 100,
-    description: 'Night aarti before Sai Baba rests',
-    duration: '20 minutes',
-    availability: 80,
-    guidelines: 'Last aarti of the day. Temple closes after this aarti.'
-  }
-];
+import ApiService from '../services/ApiService';
 
 const aartiGuidelines = [
   'Arrive at least 15 minutes before the scheduled aarti time',
@@ -60,12 +18,16 @@ const aartiGuidelines = [
 
 function AartiBooking() {
   const { user } = useAuth();
+  const [aartiTypes, setAartiTypes] = useState([]);
   const [selectedAarti, setSelectedAarti] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [numberOfPeople, setNumberOfPeople] = useState(1);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showGuidelines, setShowGuidelines] = useState(false);
   const [showDevoteeForm, setShowDevoteeForm] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [loadingTypes, setLoadingTypes] = useState(true);
+  const [error, setError] = useState('');
   const [devoteeDetails, setDevoteeDetails] = useState({
     name: user?.firstName + ' ' + user?.lastName || '',
     age: '',
@@ -73,6 +35,43 @@ function AartiBooking() {
     mobile: user?.phoneNumber || '',
     email: user?.email || ''
   });
+
+  useEffect(() => {
+    loadAartiTypes();
+  }, []);
+
+  const loadAartiTypes = async () => {
+    try {
+      setLoadingTypes(true);
+      const types = await ApiService.getAartiTypes();
+      // Transform backend data to match frontend structure with proper times and details
+      const aartiDetails = {
+        'Kakad Aarti': { time: '04:30 AM', price: 50, duration: '30 mins', description: 'Early morning aarti to wake up Sai Baba' },
+        'Madhyan Aarti': { time: '12:00 PM', price: 100, duration: '45 mins', description: 'Afternoon aarti with bhog offering' },
+        'Dhoop Aarti': { time: '06:30 PM', price: 150, duration: '60 mins', description: 'Evening aarti with dhoop and deep' },
+        'Shej Aarti': { time: '10:30 PM', price: 200, duration: '45 mins', description: 'Night aarti before Sai Baba rests' }
+      };
+      
+      const transformedTypes = types.map((type) => {
+        const details = aartiDetails[type] || { time: '06:00 PM', price: 100, duration: '30 mins', description: 'Sacred aarti ceremony' };
+        return {
+          id: type.toLowerCase().replace(/\s+/g, '_'),
+          name: type,
+          time: details.time,
+          price: details.price,
+          description: details.description,
+          duration: details.duration,
+          availability: 100,
+          guidelines: 'Please arrive 15 minutes early and maintain silence during aarti'
+        };
+      });
+      setAartiTypes(transformedTypes);
+    } catch (error) {
+      setError('Failed to load aarti types');
+    } finally {
+      setLoadingTypes(false);
+    }
+  };
 
   if (!user) {
     return <div>Loading...</div>;
@@ -87,69 +86,64 @@ function AartiBooking() {
     setShowDevoteeForm(true);
   };
 
-  const handleFinalSubmit = (e) => {
+  const handleFinalSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setError('');
     
     // Validation
     if (!devoteeDetails.name || !devoteeDetails.age || !devoteeDetails.gender || !devoteeDetails.mobile) {
-      alert('Please fill all devotee details');
+      setError('Please fill all devotee details');
+      setLoading(false);
       return;
     }
 
     if (devoteeDetails.mobile.length !== 10 || !/^[0-9]+$/.test(devoteeDetails.mobile)) {
-      alert('Please enter a valid 10-digit mobile number');
+      setError('Please enter a valid 10-digit mobile number');
+      setLoading(false);
       return;
     }
 
     if (parseInt(devoteeDetails.age) < 1 || parseInt(devoteeDetails.age) > 120) {
-      alert('Please enter a valid age between 1 and 120');
+      setError('Please enter a valid age between 1 and 120');
+      setLoading(false);
       return;
     }
     
     const aarti = aartiTypes.find(a => a.id === selectedAarti);
     if (!aarti) return;
 
-    const booking = {
-      id: Date.now().toString(),
-      userId: user.id,
-      userName: devoteeDetails.name,
-      userEmail: devoteeDetails.email,
-      userPhone: devoteeDetails.mobile,
-      type: 'aarti',
-      category: aarti.name,
-      date: selectedDate,
-      timeSlot: aarti.time,
-      numberOfPeople,
-      devoteeDetails,
-      totalAmount: aarti.price * numberOfPeople,
-      bookingDate: new Date().toISOString(),
-      status: 'upcoming',
-    };
+    try {
+      const bookingData = {
+        userId: user.id,
+        aartiType: aarti.name,
+        bookingDate: selectedDate,
+        totalAmount: aarti.price * numberOfPeople,
+        numberOfPeople: numberOfPeople
+      };
 
-    const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-    bookings.push(booking);
-    localStorage.setItem('bookings', JSON.stringify(bookings));
-
-    // Also save to aarti-specific storage for admin dashboard
-    const aartiBookings = JSON.parse(localStorage.getItem('aartiBookings') || '[]');
-    aartiBookings.push(booking);
-    localStorage.setItem('aartiBookings', JSON.stringify(aartiBookings));
-
-    setShowSuccess(true);
-    setTimeout(() => {
-      setShowSuccess(false);
-      setSelectedAarti('');
-      setSelectedDate('');
-      setNumberOfPeople(1);
-      setShowDevoteeForm(false);
-      setDevoteeDetails({
-        name: user?.firstName + ' ' + user?.lastName || '',
-        age: '',
-        gender: '',
-        mobile: user?.phoneNumber || '',
-        email: user?.email || ''
-      });
-    }, 3000);
+      await ApiService.bookAarti(bookingData);
+      setShowSuccess(true);
+      
+      setTimeout(() => {
+        setShowSuccess(false);
+        setSelectedAarti('');
+        setSelectedDate('');
+        setNumberOfPeople(1);
+        setShowDevoteeForm(false);
+        setDevoteeDetails({
+          name: user?.firstName + ' ' + user?.lastName || '',
+          age: '',
+          gender: '',
+          mobile: user?.phoneNumber || '',
+          email: user?.email || ''
+        });
+      }, 3000);
+    } catch (error) {
+      setError(error.message || 'Failed to book aarti');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const selectedAartiData = aartiTypes.find(a => a.id === selectedAarti);
@@ -249,6 +243,15 @@ function AartiBooking() {
             <p className="text-orange-600 font-semibold">Complete your aarti booking</p>
           </div>
 
+          {error && (
+            <div className="bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded-lg mb-6">
+              <div className="flex items-center">
+                <span className="mr-2">⚠️</span>
+                {error}
+              </div>
+            </div>
+          )}
+
           <div className="bg-orange-50 rounded-xl p-4 mb-6">
             <h3 className="font-bold text-lg">{aartiTypes.find(a => a.id === selectedAarti)?.name}</h3>
             <p className="text-gray-600">{selectedDate} at {aartiTypes.find(a => a.id === selectedAarti)?.time}</p>
@@ -342,13 +345,22 @@ function AartiBooking() {
               </button>
               <button
                 type="submit"
-                className="flex-1 bg-gradient-to-r from-orange-600 to-orange-700 text-white py-3 rounded-lg font-semibold hover:from-orange-700 hover:to-orange-800 transition-all"
+                disabled={loading}
+                className="flex-1 bg-gradient-to-r from-orange-600 to-orange-700 text-white py-3 rounded-lg font-semibold hover:from-orange-700 hover:to-orange-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Confirm Aarti Booking
+                {loading ? '🔄 Booking...' : 'Confirm Aarti Booking'}
               </button>
             </div>
           </form>
         </div>
+      </div>
+    );
+  }
+
+  if (loadingTypes) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-20 text-center">
+        <div className="text-2xl text-gray-600">Loading aarti types...</div>
       </div>
     );
   }
