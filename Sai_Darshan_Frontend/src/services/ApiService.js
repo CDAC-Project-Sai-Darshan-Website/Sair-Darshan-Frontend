@@ -1,389 +1,408 @@
-// API Configuration and Authentication Service
+import axios from 'axios';
+
+// API Configuration
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
+// Create axios instance
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Request interceptor to add auth token
+apiClient.interceptors.request.use(
+  (config) => {
+    // No token-based auth for now
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor for error handling
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 class ApiService {
-  constructor() {
-    this.token = localStorage.getItem('adminToken');
-  }
-
-  // Generate CSRF token
-  getCSRFToken() {
-    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
-           sessionStorage.getItem('csrf-token') || 
-           Math.random().toString(36).substring(2, 15);
-  }
-
-  // Set authorization header
-  getHeaders() {
-    const headers = {
-      'Content-Type': 'application/json',
-      'X-CSRF-Token': this.getCSRFToken()
-    };
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
-    }
-    return headers;
-  }
-
-  // Handle API responses
-  async handleResponse(response) {
-    if (response.status === 401) {
-      this.logout();
-      throw new Error('Unauthorized access');
-    }
-    if (!response.ok) {
-      let errorMessage = 'API request failed';
-      try {
-        const error = await response.json();
-        errorMessage = error.message || errorMessage;
-      } catch (parseError) {
-        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-      }
-      throw new Error(errorMessage);
-    }
-    try {
-      return await response.json();
-    } catch (parseError) {
-      throw new Error('Invalid response format');
-    }
-  }
-
-  // User Authentication APIs
+  // User Authentication
   async login(email, password) {
-    // For now, use localStorage as fallback since backend might not be running
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const user = users.find(u => u.email === email && u.password === password);
-    
-    if (!user) {
-      throw new Error('Invalid email or password');
+    try {
+      const response = await apiClient.post('/user/login', { email, password });
+      localStorage.setItem('user', JSON.stringify(response.data));
+      return { user: response.data };
+    } catch (error) {
+      throw new Error(error.response?.data || 'Login failed');
     }
-    
-    localStorage.setItem('currentUser', JSON.stringify(user));
-    return { user };
   }
 
   async signup(userData) {
-    // For now, use localStorage as fallback since backend might not be running
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    
-    // Check if user already exists
-    if (users.find(u => u.email === userData.email)) {
-      throw new Error('User with this email already exists');
+    try {
+      const response = await apiClient.post('/user/signup', userData);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Signup failed');
     }
-    
-    // Create new user
-    const newUser = {
-      id: Date.now().toString(),
-      ...userData,
-      createdAt: new Date().toISOString()
-    };
-    
-    users.push(newUser);
-    localStorage.setItem('users', JSON.stringify(users));
-    
-    return { user: newUser };
   }
 
-  // User Booking APIs
+  async getUserDetails(userId) {
+    try {
+      const response = await apiClient.get(`/user/${userId}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to get user details');
+    }
+  }
+
+  async updateUserDetails(userId, userData) {
+    try {
+      const response = await apiClient.post(`/user/${userId}`, userData);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to update user details');
+    }
+  }
+
+  // Darshan APIs
+  async getDarshanTypes() {
+    try {
+      const response = await apiClient.get('/darshan/types');
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to get darshan types');
+    }
+  }
+
+  async getAvailableSlots(date) {
+    try {
+      const response = await apiClient.get('/darshan/slots', { params: { date } });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to get available slots');
+    }
+  }
+
+  async getDarshanPrices() {
+    try {
+      const response = await apiClient.get('/darshan/prices');
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to get darshan prices');
+    }
+  }
+
+  async bookDarshan(bookingData) {
+    try {
+      const response = await apiClient.post('/darshan/book', bookingData);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to book darshan');
+    }
+  }
+
   async getUserDarshanBookings(userId) {
-    const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-    return bookings.filter(booking => booking.userId === userId && booking.type === 'darshan');
+    try {
+      const response = await apiClient.get(`/darshan/bookings/user/${userId}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to get user bookings');
+    }
   }
 
-  async getUserAartiBookings(userId) {
-    const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-    return bookings.filter(booking => booking.userId === userId && booking.type === 'aarti');
+  async getDarshanBookingDetails(bookingId) {
+    try {
+      const response = await apiClient.get(`/darshan/bookings/${bookingId}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to get booking details');
+    }
   }
 
-  async getUserPoojaBookings(userId) {
-    const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-    return bookings.filter(booking => booking.userId === userId && booking.type === 'pooja');
+  async cancelDarshanBooking(bookingId) {
+    try {
+      const response = await apiClient.post(`/darshan/bookings/${bookingId}/cancel`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to cancel booking');
+    }
   }
 
-  async getUserAllBookings(userId) {
-    const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-    return bookings.filter(booking => booking.userId === userId);
-  }
-
-  // Aarti Types API
+  // Aarti APIs
   async getAartiTypes() {
-    // Return default aarti types since backend might not be available
-    return [
-      'Kakad Aarti',
-      'Madhyan Aarti', 
-      'Dhoop Aarti',
-      'Shej Aarti'
-    ];
+    try {
+      const response = await apiClient.get('/aarti/types');
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to get aarti types');
+    }
+  }
+
+  async getAartiSchedule(date) {
+    try {
+      const response = await apiClient.get('/aarti/schedule', { params: { date } });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to get aarti schedule');
+    }
+  }
+
+  async getAartiPrices() {
+    try {
+      const response = await apiClient.get('/aarti/prices');
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to get aarti prices');
+    }
   }
 
   async bookAarti(bookingData) {
-    // Get aarti time based on type
-    const aartiTimes = {
-      'Kakad Aarti': '04:30 AM',
-      'Madhyan Aarti': '12:00 PM', 
-      'Dhoop Aarti': '06:30 PM',
-      'Shej Aarti': '10:30 PM'
-    };
-    
-    // Save aarti booking to localStorage
-    const booking = {
-      id: Date.now().toString(),
-      userId: bookingData.userId,
-      type: 'aarti',
-      aartiType: bookingData.aartiType,
-      date: bookingData.bookingDate,
-      time: aartiTimes[bookingData.aartiType] || '06:00 PM',
-      totalAmount: bookingData.totalAmount || 100,
-      numberOfPeople: bookingData.numberOfPeople || 1,
-      status: 'confirmed',
-      bookingDate: new Date().toISOString()
-    };
-    
-    const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-    bookings.push(booking);
-    localStorage.setItem('bookings', JSON.stringify(bookings));
-    
-    return booking;
-  }
-
-  // Pooja Types and Booking APIs
-  async getPoojaTypes() {
-    // Return default pooja types since backend might not be available
-    return [
-      {
-        poojaType: 'RUDRABHISHEK',
-        displayName: 'Rudrabhishek Pooja',
-        price: 2100,
-        durationMinutes: 90,
-        description: 'Sacred abhishek of Lord Shiva with holy water, milk, and sacred materials',
-        requiredMaterials: 'Milk, Honey, Ghee, Gangajal, Bilva leaves, Flowers',
-        benefits: 'Removes obstacles, brings peace and prosperity'
-      },
-      {
-        poojaType: 'MAHAMRITYUNJAY',
-        displayName: 'Mahamrityunjay Jaap',
-        price: 1100,
-        durationMinutes: 60,
-        description: 'Powerful mantra chanting for health and longevity',
-        requiredMaterials: 'Rudraksha, White flowers, Sacred thread, Ghee lamp',
-        benefits: 'Protects from diseases, grants good health and long life'
-      },
-      {
-        poojaType: 'SATYANARAYAN',
-        displayName: 'Satyanarayan Pooja',
-        price: 1500,
-        durationMinutes: 120,
-        description: 'Complete Satyanarayan Katha and pooja for prosperity',
-        requiredMaterials: 'Banana, Coconut, Panchamrit, Flowers, Incense',
-        benefits: 'Brings wealth, happiness and fulfills desires'
-      },
-      {
-        poojaType: 'HANUMAN_CHALISA',
-        displayName: 'Hanuman Chalisa Path',
-        price: 500,
-        durationMinutes: 45,
-        description: 'Recitation of Hanuman Chalisa with aarti',
-        requiredMaterials: 'Red flowers, Sindoor, Coconut, Sweets',
-        benefits: 'Removes fear, grants strength and courage'
-      }
-    ];
-  }
-
-  async bookPooja(userId, bookingData) {
-    // Save pooja booking to localStorage
-    const booking = {
-      id: Date.now().toString(),
-      userId: userId,
-      type: 'pooja',
-      category: bookingData.poojaType,
-      date: bookingData.date,
-      timeSlot: bookingData.timeSlot,
-      totalAmount: bookingData.totalAmount,
-      devoteeDetails: bookingData.devoteeDetails,
-      status: 'confirmed',
-      bookingDate: new Date().toISOString()
-    };
-    
-    const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-    bookings.push(booking);
-    localStorage.setItem('bookings', JSON.stringify(bookings));
-    
-    return booking;
-  }
-
-  async adminLogin(email, password) {
-    const response = await fetch(`${API_BASE_URL}/admin/login`, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify({ email, password })
-    });
-    
-    const data = await this.handleResponse(response);
-    this.token = data.token;
-    localStorage.setItem('adminToken', this.token);
-    localStorage.setItem('adminUser', JSON.stringify(data.user));
-    return data;
-  }
-
-  async logout() {
     try {
-      await fetch(`${API_BASE_URL}/auth/logout`, {
-        method: 'POST',
-        headers: this.getHeaders()
-      });
+      const response = await apiClient.post('/aarti/book', bookingData);
+      return response.data;
     } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      this.token = null;
-      localStorage.removeItem('adminToken');
-      localStorage.removeItem('adminUser');
+      throw new Error(error.response?.data?.message || 'Failed to book aarti');
     }
   }
 
-  // Darshan Management APIs
-  async getDarshans() {
-    const response = await fetch(`${API_BASE_URL}/admin/darshan`, {
-      headers: this.getHeaders()
-    });
-    return this.handleResponse(response);
+  async getUserAartiBookings(userId) {
+    try {
+      const response = await apiClient.get(`/aarti/bookings/user/${userId}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to get aarti bookings');
+    }
   }
 
-  async addDarshan(darshanData) {
-    const response = await fetch(`${API_BASE_URL}/admin/darshan`, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify(darshanData)
-    });
-    return this.handleResponse(response);
+  // Pooja APIs
+  async getPoojaTypes() {
+    try {
+      const response = await apiClient.get('/pooja/types');
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to get pooja types');
+    }
   }
 
-  async updateDarshan(darshanId, darshanData) {
-    const response = await fetch(`${API_BASE_URL}/admin/darshan/${darshanId}`, {
-      method: 'PUT',
-      headers: this.getHeaders(),
-      body: JSON.stringify(darshanData)
-    });
-    return this.handleResponse(response);
+  async bookPooja(userId, bookingData) {
+    try {
+      const response = await apiClient.post('/pooja/bookings', bookingData, {
+        params: { userId }
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to book pooja');
+    }
   }
 
-  async deleteDarshan(darshanId) {
-    const response = await fetch(`${API_BASE_URL}/admin/darshan/${darshanId}`, {
-      method: 'DELETE',
-      headers: this.getHeaders()
-    });
-    return this.handleResponse(response);
+  async getUserPoojaBookings(userId) {
+    try {
+      const response = await apiClient.get(`/pooja/bookings/user/${userId}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to get pooja bookings');
+    }
   }
 
-  // Aarti Management APIs
-  async getAartis() {
-    const response = await fetch(`${API_BASE_URL}/admin/aarti`, {
-      headers: this.getHeaders()
-    });
-    return this.handleResponse(response);
+  // Admin APIs
+  async adminLogin(email, password) {
+    try {
+      const response = await apiClient.post('/admin/login', { email, password });
+      if (response.data.token) {
+        localStorage.setItem('adminToken', response.data.token);
+        localStorage.setItem('adminUser', JSON.stringify(response.data.user));
+      }
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Admin login failed');
+    }
   }
 
-  async addAarti(aartiData) {
-    const response = await fetch(`${API_BASE_URL}/admin/aarti`, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify(aartiData)
-    });
-    return this.handleResponse(response);
+  async getAdminStats() {
+    try {
+      const response = await apiClient.get('/admin/stats');
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to get admin stats');
+    }
   }
 
-  async updateAarti(aartiId, aartiData) {
-    const response = await fetch(`${API_BASE_URL}/admin/aarti/${aartiId}`, {
-      method: 'PUT',
-      headers: this.getHeaders(),
-      body: JSON.stringify(aartiData)
-    });
-    return this.handleResponse(response);
+  async getAllUsers() {
+    try {
+      const response = await apiClient.get('/admin/users');
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to get users');
+    }
   }
 
-  async deleteAarti(aartiId) {
-    const response = await fetch(`${API_BASE_URL}/admin/aarti/${aartiId}`, {
-      method: 'DELETE',
-      headers: this.getHeaders()
-    });
-    return this.handleResponse(response);
+  async getAllDarshanBookings() {
+    try {
+      const response = await apiClient.get('/admin/bookings/darshan');
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to get darshan bookings');
+    }
   }
 
-  // Special Pooja Management APIs
-  async getPoojas() {
-    const response = await fetch(`${API_BASE_URL}/admin/pooja`, {
-      headers: this.getHeaders()
-    });
-    return this.handleResponse(response);
+  // Admin Darshan Management
+  async getAllDarshanTypes() {
+    try {
+      const response = await apiClient.get('/admin/darshan');
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to get darshan types');
+    }
   }
 
-  async addPooja(poojaData) {
-    const response = await fetch(`${API_BASE_URL}/admin/pooja`, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify(poojaData)
-    });
-    return this.handleResponse(response);
+  async createDarshanType(darshanData) {
+    try {
+      const response = await apiClient.post('/admin/darshan', darshanData);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to create darshan type');
+    }
   }
 
-  async updatePooja(poojaId, poojaData) {
-    const response = await fetch(`${API_BASE_URL}/admin/pooja/${poojaId}`, {
-      method: 'PUT',
-      headers: this.getHeaders(),
-      body: JSON.stringify(poojaData)
-    });
-    return this.handleResponse(response);
+  async updateDarshanType(darshanId, darshanData) {
+    try {
+      const response = await apiClient.put(`/admin/darshan/${darshanId}`, darshanData);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to update darshan type');
+    }
   }
 
-  async deletePooja(poojaId) {
-    const response = await fetch(`${API_BASE_URL}/admin/pooja/${poojaId}`, {
-      method: 'DELETE',
-      headers: this.getHeaders()
-    });
-    return this.handleResponse(response);
+  async deleteDarshanType(darshanId) {
+    try {
+      const response = await apiClient.delete(`/admin/darshan/${darshanId}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to delete darshan type');
+    }
   }
 
-  // Donation Management APIs
-  async getDonations() {
-    const response = await fetch(`${API_BASE_URL}/admin/donations`, {
-      headers: this.getHeaders()
-    });
-    return this.handleResponse(response);
+  async getAllDarshanBookings() {
+    try {
+      const response = await apiClient.get('/admin/bookings/darshan');
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to get all darshan bookings');
+    }
   }
 
-  async getDonationDetails(donationId) {
-    const response = await fetch(`${API_BASE_URL}/admin/donations/${donationId}`, {
-      headers: this.getHeaders()
-    });
-    return this.handleResponse(response);
+  async getAllUsers() {
+    try {
+      const response = await apiClient.get('/admin/users');
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to get users');
+    }
   }
 
-  async getDailyDonationReport() {
-    const response = await fetch(`${API_BASE_URL}/admin/reports/donations/daily`, {
-      headers: this.getHeaders()
-    });
-    return this.handleResponse(response);
+  async getAllAartiBookings() {
+    try {
+      const response = await apiClient.get('/admin/bookings/aarti');
+      return response.data;
+    } catch (error) {
+      return []; // Return empty array if endpoint doesn't exist
+    }
   }
 
-  async getMonthlyDonationReport() {
-    const response = await fetch(`${API_BASE_URL}/admin/reports/donations/monthly`, {
-      headers: this.getHeaders()
-    });
-    return this.handleResponse(response);
+  async getAllPoojaBookings() {
+    try {
+      const response = await apiClient.get('/admin/bookings/pooja');
+      return response.data;
+    } catch (error) {
+      return []; // Return empty array if endpoint doesn't exist
+    }
   }
 
-  // Reports & Analytics APIs
-  async getDailyReport() {
-    const response = await fetch(`${API_BASE_URL}/admin/reports/daily`, {
-      headers: this.getHeaders()
-    });
-    return this.handleResponse(response);
+  // Admin Aarti Management
+  async getAllAdminAartiTypes() {
+    try {
+      const response = await apiClient.get('/admin/aarti');
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to get aarti types');
+    }
   }
 
-  async getMonthlyReport() {
-    const response = await fetch(`${API_BASE_URL}/admin/reports/monthly`, {
-      headers: this.getHeaders()
-    });
-    return this.handleResponse(response);
+  async createAartiType(aartiData) {
+    try {
+      const response = await apiClient.post('/admin/aarti', aartiData);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to create aarti type');
+    }
+  }
+
+  async updateAartiType(aartiId, aartiData) {
+    try {
+      const response = await apiClient.put(`/admin/aarti/${aartiId}`, aartiData);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to update aarti type');
+    }
+  }
+
+  async deleteAartiType(aartiId) {
+    try {
+      const response = await apiClient.delete(`/admin/aarti/${aartiId}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to delete aarti type');
+    }
+  }
+
+  // Admin Pooja Management
+  async getAllAdminPoojaTypes() {
+    try {
+      const response = await apiClient.get('/admin/pooja');
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to get pooja types');
+    }
+  }
+
+  async createPoojaType(poojaData) {
+    try {
+      const response = await apiClient.post('/admin/pooja', poojaData);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to create pooja type');
+    }
+  }
+
+  async updatePoojaType(poojaId, poojaData) {
+    try {
+      const response = await apiClient.put(`/admin/pooja/${poojaId}`, poojaData);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to update pooja type');
+    }
+  }
+
+  async deletePoojaType(poojaId) {
+    try {
+      const response = await apiClient.delete(`/admin/pooja/${poojaId}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to delete pooja type');
+    }
+  }
+
+  logout() {
+    localStorage.removeItem('user');
+    localStorage.removeItem('adminUser');
   }
 }
 
