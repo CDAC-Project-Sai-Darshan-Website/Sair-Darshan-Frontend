@@ -44,27 +44,17 @@ function AartiBooking() {
     try {
       setLoadingTypes(true);
       const types = await ApiService.getAartiTypes();
-      // Transform backend data to match frontend structure with proper times and details
-      const aartiDetails = {
-        'Kakad Aarti': { time: '04:30 AM', price: 50, duration: '30 mins', description: 'Early morning aarti to wake up Sai Baba' },
-        'Madhyan Aarti': { time: '12:00 PM', price: 100, duration: '45 mins', description: 'Afternoon aarti with bhog offering' },
-        'Dhoop Aarti': { time: '06:30 PM', price: 150, duration: '60 mins', description: 'Evening aarti with dhoop and deep' },
-        'Shej Aarti': { time: '10:30 PM', price: 200, duration: '45 mins', description: 'Night aarti before Sai Baba rests' }
-      };
-      
-      const transformedTypes = types.map((type) => {
-        const details = aartiDetails[type] || { time: '06:00 PM', price: 100, duration: '30 mins', description: 'Sacred aarti ceremony' };
-        return {
-          id: type.toLowerCase().replace(/\s+/g, '_'),
-          name: type,
-          time: details.time,
-          price: details.price,
-          description: details.description,
-          duration: details.duration,
-          availability: 100,
-          guidelines: 'Please arrive 15 minutes early and maintain silence during aarti'
-        };
-      });
+      // Transform backend data to match frontend structure
+      const transformedTypes = types.map((type, index) => ({
+        id: type.toLowerCase().replace(/\s+/g, '_'),
+        name: type,
+        time: '', // Backend doesn't provide time
+        price: 100, // Default price
+        description: '',
+        duration: '',
+        availability: 100,
+        guidelines: ''
+      }));
       setAartiTypes(transformedTypes);
     } catch (error) {
       setError('Failed to load aarti types');
@@ -117,9 +107,7 @@ function AartiBooking() {
       const bookingData = {
         userId: user.id,
         aartiType: aarti.name,
-        bookingDate: selectedDate,
-        totalAmount: aarti.price * numberOfPeople,
-        numberOfPeople: numberOfPeople
+        bookingDate: selectedDate
       };
 
       await ApiService.bookAarti(bookingData);
