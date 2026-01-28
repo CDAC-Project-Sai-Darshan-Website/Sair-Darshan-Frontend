@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../providers/AuthProvider';
 import { useNavigate } from 'react-router';
+import ApiService from '../services/ApiService';
 
 function UserDashboard() {
   const { user } = useAuth();
@@ -19,27 +20,23 @@ function UserDashboard() {
     }
   }, [user]);
 
-  const loadUserStats = () => {
-    const darshanBookings = JSON.parse(localStorage.getItem('darshanBookings') || '[]')
-      .filter(booking => booking.userId === user.id);
-    
-    const aartiBookings = JSON.parse(localStorage.getItem('aartiBookings') || '[]')
-      .filter(booking => booking.userId === user.id);
-    
-    const poojaBookings = JSON.parse(localStorage.getItem('poojaBookings') || '[]')
-      .filter(booking => booking.userId === user.id);
-    
-    const donations = JSON.parse(localStorage.getItem('donations') || '[]')
-      .filter(donation => donation.userId === user.id);
-    
-    const totalDonations = donations.reduce((sum, donation) => sum + donation.amount, 0);
+  const loadUserStats = async () => {
+    try {
+      const [darshanBookings, aartiBookings, poojaBookings] = await Promise.all([
+        ApiService.getUserDarshanBookings(user.id).catch(() => []),
+        ApiService.getUserAartiBookings(user.id).catch(() => []),
+        ApiService.getUserPoojaBookings(user.id).catch(() => [])
+      ]);
 
-    setStats({
-      darshanCount: darshanBookings.length,
-      aartiCount: aartiBookings.length,
-      poojaCount: poojaBookings.length,
-      totalDonations
-    });
+      setStats({
+        darshanCount: darshanBookings.length,
+        aartiCount: aartiBookings.length,
+        poojaCount: poojaBookings.length,
+        totalDonations: 0 // Donations not implemented in backend yet
+      });
+    } catch (error) {
+      console.error('Failed to load user stats:', error);
+    }
   };
 
   if (!user) {
