@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../providers/AuthProvider';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 
 function UserProfile() {
   const { user, setUser } = useAuth();
