@@ -1,20 +1,37 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../providers/AuthProvider';
-import { useNavigate } from 'react-router-dom';
-
-const darshanTypes = [
-  { id: 1, name: 'General Darshan', price: 0, duration: '30 mins', description: 'Free darshan for all devotees' },
-  { id: 2, name: 'VIP Darshan', price: 100, duration: '15 mins', description: 'Quick darshan with priority access' }
-];
+import { useNavigate } from 'react-router';
+import ApiService from '../services/ApiService';
 
 function DarshanBooking() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [darshanTypes, setDarshanTypes] = useState([]);
   const [selectedDarshan, setSelectedDarshan] = useState(null);
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
   const [numberOfPeople, setNumberOfPeople] = useState(1);
   const [bookingConfirmed, setBookingConfirmed] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    loadDarshanTypes();
+  }, []);
+
+  const loadDarshanTypes = async () => {
+    try {
+      const types = await ApiService.getAllDarshanTypes();
+      // Map basePrice to price for consistency
+      const mappedTypes = types.map(type => ({
+        ...type,
+        price: type.basePrice
+      }));
+      setDarshanTypes(mappedTypes);
+    } catch (error) {
+      setError('Failed to load darshan types');
+    }
+  };
 
   if (!user) {
     return <div>Loading...</div>;
@@ -22,26 +39,27 @@ function DarshanBooking() {
 
   const timeSlots = ['06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00'];
 
-  const handleBooking = () => {
-    const booking = {
-      id: Date.now().toString(),
-      userId: user.id,
-      userName: `${user.firstName} ${user.lastName}`,
-      type: 'darshan',
-      darshanType: selectedDarshan.name,
-      date: selectedDate,
-      time: selectedTime,
-      numberOfPeople,
-      totalAmount: selectedDarshan.price * numberOfPeople,
-      status: 'confirmed',
-      bookingDate: new Date().toISOString()
-    };
-
-    const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-    bookings.push(booking);
-    localStorage.setItem('bookings', JSON.stringify(bookings));
+  const handleBooking = async () => {
+    setLoading(true);
+    setError('');
     
-    setBookingConfirmed(true);
+    try {
+      const bookingData = {
+        userId: Number(user.id),
+        darshanSlotId: Number(selectedDarshan.id),
+        bookingDate: selectedDate,
+        numberOfPeople: Number(numberOfPeople)
+      };
+
+      console.log('Booking data:', bookingData);
+      await ApiService.bookDarshan(bookingData);
+      setBookingConfirmed(true);
+    } catch (error) {
+      console.error('Booking error:', error);
+      setError(error.message || 'Failed to book darshan');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getTomorrowDate = () => {
@@ -97,6 +115,15 @@ function DarshanBooking() {
             Back
           </button>
         </div>
+
+        {error && (
+          <div className="bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded-lg mb-6">
+            <div className="flex items-center">
+              <span className="mr-2">⚠️</span>
+              {error}
+            </div>
+          </div>
+        )}
 
         {!selectedDarshan ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -186,10 +213,10 @@ function DarshanBooking() {
               </button>
               <button
                 onClick={handleBooking}
-                disabled={!selectedDate || !selectedTime}
+                disabled={!selectedDate || !selectedTime || loading}
                 className="flex-1 bg-gradient-to-r from-orange-600 to-red-600 text-white py-3 rounded-xl font-bold hover:from-orange-700 hover:to-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Confirm Booking
+                {loading ? ' Booking...' : 'Confirm Booking'}
               </button>
             </div>
           </div>
