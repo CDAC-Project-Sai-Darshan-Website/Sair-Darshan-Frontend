@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../providers/AuthProvider';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import ApiService from '../services/ApiService';
 
 function MyBookingsUser() {
@@ -93,9 +93,9 @@ function MyBookingsUser() {
                     <tbody>
                       {bookings.darshan.map((booking) => (
                         <tr key={booking.id} className="border-b">
-                          <td className="py-2">{booking.darshanType}</td>
-                          <td className="py-2">{booking.date}</td>
-                          <td className="py-2">{booking.time}</td>
+                          <td className="py-2">{booking.darshanSlotName}</td>
+                          <td className="py-2">{booking.bookingDate}</td>
+                          <td className="py-2">{booking.slotTime}</td>
                           <td className="py-2">{booking.numberOfPeople}</td>
                           <td className="py-2">₹{booking.totalAmount}</td>
                           <td className="py-2">
@@ -131,10 +131,10 @@ function MyBookingsUser() {
                       {bookings.aarti.map((booking) => (
                         <tr key={booking.id} className="border-b">
                           <td className="py-2">{booking.aartiType}</td>
-                          <td className="py-2">{booking.date}</td>
-                          <td className="py-2">{booking.time}</td>
-                          <td className="py-2">{booking.numberOfPeople}</td>
-                          <td className="py-2">₹{booking.totalAmount}</td>
+                          <td className="py-2">{booking.bookingDate}</td>
+                          <td className="py-2">-</td>
+                          <td className="py-2">-</td>
+                          <td className="py-2">₹{booking.price}</td>
                           <td className="py-2">
                             <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">
                               {booking.status || 'Confirmed'}
