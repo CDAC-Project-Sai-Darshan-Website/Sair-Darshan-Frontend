@@ -216,7 +216,7 @@ function DarshanBooking() {
                 disabled={!selectedDate || !selectedTime || loading}
                 className="flex-1 bg-gradient-to-r from-orange-600 to-red-600 text-white py-3 rounded-xl font-bold hover:from-orange-700 hover:to-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? ' Booking...' : 'Confirm Booking'}
+                {loading ? '🔄 Booking...' : 'Confirm Booking'}
               </button>
             </div>
           </div>
