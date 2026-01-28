@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useAuth } from '../providers/AuthProvider';
 import ApiService from '../services/ApiService';
 
@@ -49,7 +49,7 @@ function Login() {
         <div className="text-center mb-8">
           <div className="w-12 h-12 mx-auto mb-6 rounded-full overflow-hidden shadow-xl border-4 border-orange-300 bg-white p-1">
             <img 
-              src="/sai-baba.jpg" 
+              src="/image/sai-baba.jpg" 
               alt="Shirdi Sai Baba" 
               className="w-full h-full object-cover rounded-full"
             />
