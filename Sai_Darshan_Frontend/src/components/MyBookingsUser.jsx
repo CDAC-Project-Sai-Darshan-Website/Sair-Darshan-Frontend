@@ -37,6 +37,42 @@ function MyBookingsUser() {
     }
   };
 
+  const handleCancelDarshan = async (bookingId) => {
+    if (window.confirm('Are you sure you want to cancel this darshan booking?')) {
+      try {
+        await ApiService.cancelDarshanBooking(bookingId);
+        alert('Booking cancelled successfully');
+        loadBookings();
+      } catch (error) {
+        alert('Failed to cancel booking');
+      }
+    }
+  };
+
+  const handleCancelAarti = async (bookingId) => {
+    if (window.confirm('Are you sure you want to cancel this aarti booking?')) {
+      try {
+        await ApiService.cancelAartiBooking(bookingId);
+        alert('Booking cancelled successfully');
+        loadBookings();
+      } catch (error) {
+        alert('Failed to cancel booking');
+      }
+    }
+  };
+
+  const handleCancelPooja = async (bookingId) => {
+    if (window.confirm('Are you sure you want to cancel this pooja booking?')) {
+      try {
+        await ApiService.cancelPoojaBooking(bookingId);
+        alert('Booking cancelled successfully');
+        loadBookings();
+      } catch (error) {
+        alert('Failed to cancel booking');
+      }
+    }
+  };
+
   if (!user) {
     return <div>Loading...</div>;
   }
@@ -88,6 +124,7 @@ function MyBookingsUser() {
                         <th className="text-left py-2">People</th>
                         <th className="text-left py-2">Amount</th>
                         <th className="text-left py-2">Status</th>
+                        <th className="text-left py-2">Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -99,9 +136,21 @@ function MyBookingsUser() {
                           <td className="py-2">{booking.numberOfPeople}</td>
                           <td className="py-2">₹{booking.totalAmount}</td>
                           <td className="py-2">
-                            <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              booking.status === 'CANCELLED' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                            }`}>
                               {booking.status}
                             </span>
+                          </td>
+                          <td className="py-2">
+                            {booking.status !== 'CANCELLED' && (
+                              <button
+                                onClick={() => handleCancelDarshan(booking.id)}
+                                className="text-red-600 hover:text-red-800 text-sm font-medium"
+                              >
+                                Cancel
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -125,6 +174,7 @@ function MyBookingsUser() {
                         <th className="text-left py-2">People</th>
                         <th className="text-left py-2">Amount</th>
                         <th className="text-left py-2">Status</th>
+                        <th className="text-left py-2">Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -132,13 +182,25 @@ function MyBookingsUser() {
                         <tr key={booking.id} className="border-b">
                           <td className="py-2">{booking.aartiType}</td>
                           <td className="py-2">{booking.bookingDate}</td>
-                          <td className="py-2">-</td>
-                          <td className="py-2">-</td>
+                          <td className="py-2">{booking.aartiTime || '-'}</td>
+                          <td className="py-2">{booking.numberOfPeople || '-'}</td>
                           <td className="py-2">₹{booking.price}</td>
                           <td className="py-2">
-                            <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              booking.status === 'CANCELLED' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                            }`}>
                               {booking.status || 'Confirmed'}
                             </span>
+                          </td>
+                          <td className="py-2">
+                            {booking.status !== 'CANCELLED' && (
+                              <button
+                                onClick={() => handleCancelAarti(booking.id)}
+                                className="text-red-600 hover:text-red-800 text-sm font-medium"
+                              >
+                                Cancel
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -161,6 +223,7 @@ function MyBookingsUser() {
                         <th className="text-left py-2">Time</th>
                         <th className="text-left py-2">Amount</th>
                         <th className="text-left py-2">Status</th>
+                        <th className="text-left py-2">Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -171,9 +234,21 @@ function MyBookingsUser() {
                           <td className="py-2">{booking.timeSlot}</td>
                           <td className="py-2">₹{booking.totalAmount}</td>
                           <td className="py-2">
-                            <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              booking.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                            }`}>
                               {booking.status}
                             </span>
+                          </td>
+                          <td className="py-2">
+                            {booking.status !== 'cancelled' && (
+                              <button
+                                onClick={() => handleCancelPooja(booking.id)}
+                                className="text-red-600 hover:text-red-800 text-sm font-medium"
+                              >
+                                Cancel
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}
