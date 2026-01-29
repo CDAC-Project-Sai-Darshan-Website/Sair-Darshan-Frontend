@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../providers/AuthProvider';
 import { useNavigate } from 'react-router';
+import ApiService from '../services/ApiService';
 
 function UserProfile() {
   const { user, setUser } = useAuth();
@@ -14,23 +15,43 @@ function UserProfile() {
     phoneNumber: user?.phoneNumber || ''
   });
   const [showSuccess, setShowSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setError('');
     
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const updatedUsers = users.map(u => 
-      u.id === user.id ? { ...u, ...formData } : u
-    );
-    
-    localStorage.setItem('users', JSON.stringify(updatedUsers));
-    
-    const updatedUser = { ...user, ...formData };
-    setUser(updatedUser);
-    localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-    
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
+    try {
+      // Map photoIdProof to backend enum format
+      const photoIdProofMap = {
+        'Aadhaar': 'AADHAAR_CARD',
+        'PAN': 'PAN_CARD',
+        'Passport': 'PASSPORT',
+        'Driving License': 'DRIVING_LICENSE',
+        'Voter ID': 'VOTER_ID'
+      };
+      
+      const dataToSend = {
+        ...formData,
+        gender: formData.gender.toUpperCase(),
+        photoIdProof: photoIdProofMap[formData.photoIdProof] || formData.photoIdProof
+      };
+      
+      const updatedData = await ApiService.updateUserDetails(user.id, dataToSend);
+      
+      const updatedUser = { ...user, ...updatedData };
+      setUser(updatedUser);
+      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+      
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+    } catch (error) {
+      setError(error.message || 'Failed to update profile');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!user) {
@@ -58,6 +79,15 @@ function UserProfile() {
             <div className="flex items-center">
               <span className="mr-2">✅</span>
               Profile updated successfully!
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded-lg mb-6">
+            <div className="flex items-center">
+              <span className="mr-2">⚠️</span>
+              {error}
             </div>
           </div>
         )}
@@ -175,9 +205,10 @@ function UserProfile() {
 
             <button
               type="submit"
-              className="w-full bg-gradient-to-r from-orange-600 to-orange-700 text-white py-4 rounded-xl hover:from-orange-700 hover:to-orange-800 transition-all font-bold text-lg"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-orange-600 to-orange-700 text-white py-4 rounded-xl hover:from-orange-700 hover:to-orange-800 transition-all font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Update Profile
+              {loading ? 'Updating...' : 'Update Profile'}
             </button>
           </form>
         </div>

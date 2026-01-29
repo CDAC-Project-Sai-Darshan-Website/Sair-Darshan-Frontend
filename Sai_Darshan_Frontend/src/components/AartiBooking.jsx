@@ -44,17 +44,19 @@ function AartiBooking() {
     try {
       setLoadingTypes(true);
       const types = await ApiService.getAartiTypes();
-      // Transform backend data to match frontend structure
-      const transformedTypes = types.map((type, index) => ({
-        id: type.toLowerCase().replace(/\s+/g, '_'),
-        name: type,
-        time: '', // Backend doesn't provide time
-        price: 100, // Default price
-        description: '',
-        duration: '',
-        availability: 100,
-        guidelines: ''
-      }));
+      // Transform backend data: "Name|Time|Price"
+      const transformedTypes = types.map((type) => {
+        const [name, time, price] = type.split('|');
+        return {
+          id: name.toLowerCase().replace(/\s+/g, '_'),
+          name: name,
+          time: time || 'TBD',
+          price: parseFloat(price) || 100,
+          description: '',
+          duration: '',
+          guidelines: ''
+        };
+      });
       setAartiTypes(transformedTypes);
     } catch (error) {
       setError('Failed to load aarti types');
@@ -107,7 +109,9 @@ function AartiBooking() {
       const bookingData = {
         userId: user.id,
         aartiType: aarti.name,
-        bookingDate: selectedDate
+        bookingDate: selectedDate,
+        aartiTime: aarti.time || 'TBD',
+        numberOfPeople: numberOfPeople
       };
 
       await ApiService.bookAarti(bookingData);
@@ -402,15 +406,6 @@ function AartiBooking() {
                       </div>
                       <p className="text-xs text-gray-500">per person</p>
                     </div>
-                  </div>
-                  <div className="flex items-center justify-between pt-3 border-t border-gray-200">
-                    <span className="text-sm text-gray-500">Available passes</span>
-                    <span className={`text-sm font-semibold ${
-                      aarti.availability > 100 ? 'text-green-600' : 
-                      aarti.availability > 50 ? 'text-yellow-600' : 'text-red-600'
-                    }`}>
-                      {aarti.availability} passes
-                    </span>
                   </div>
                   <div className="mt-2 text-xs text-gray-600 italic">
                     {aarti.guidelines}
